@@ -778,6 +778,11 @@ function recalc() {
     }
   }
 
+  // Enforce dep = previous arr for legs after the first
+  for (let i = 1; i < legs.length; i++) {
+    if (legs[i-1].arr) legs[i].dep = legs[i-1].arr;
+  }
+
   let restDepInfo = null;
   for (let i = 0; i < legs.length; i++) {
     const leg = legs[i];
@@ -877,7 +882,10 @@ function recalc() {
     tr.className = 'leg-row' + (legInvalid ? ' invalid' : '');
     tr.innerHTML = `
       <td>${i+1}</td>
-      <td><div class="icao-wrapper"><input class="icao-input${depInvalid ? ' invalid' : ''}" value="${esc(leg.dep)}" data-l="${i}" data-f="dep" placeholder="ICAO" spellcheck="false"></div>${depCity ? `<div class="icao-city">${esc(depCity)}</div>` : ''}${depTzLabel ? `<div class="icao-tz">${depTzLabel}</div>` : ''}${depInvalid ? '<div class="validation-warn">Unknown</div>' : ''}</td>
+      <td>${i === 0
+        ? `<div class="icao-wrapper"><input class="icao-input${depInvalid ? ' invalid' : ''}" value="${esc(leg.dep)}" data-l="${i}" data-f="dep" placeholder="ICAO" spellcheck="false"></div>`
+        : `<span class="mono" style="font-weight:600">${esc(leg.dep)}</span>`
+      }${depCity ? `<div class="icao-city">${esc(depCity)}</div>` : ''}${depTzLabel ? `<div class="icao-tz">${depTzLabel}</div>` : ''}${depInvalid ? '<div class="validation-warn">Unknown</div>' : ''}</td>
       <td class="arrow">→</td>
       <td><div class="icao-wrapper"><input class="icao-input${arrInvalid ? ' invalid' : ''}" value="${esc(leg.arr)}" data-l="${i}" data-f="arr" placeholder="ICAO" spellcheck="false"></div>${arrCity ? `<div class="icao-city">${esc(arrCity)}</div>` : ''}${arrTzLabel ? `<div class="icao-tz">${arrTzLabel}</div>` : ''}${arrInvalid ? '<div class="validation-warn">Unknown</div>' : ''}${sameApt ? '<div class="validation-warn">Same as departure</div>' : ''}</td>
       <td class="mono">${distNm!=null ? Math.round(distNm).toLocaleString() : '—'}</td>
