@@ -81,7 +81,13 @@ function placesLookup($query, $key) {
     $resp = @file_get_contents('https://places.googleapis.com/v1/places:searchText', false, $ctx);
     if (!$resp) return null;
     $data = json_decode($resp, true);
-    return $data['places'][0]['formattedAddress'] ?? null;
+    $addr = $data['places'][0]['formattedAddress'] ?? null;
+    if ($addr) {
+        // Strip zip code and country: "123 Main St, City, ST 12345, USA" → "123 Main St, City, ST"
+        $addr = preg_replace('/,?\s*USA$/', '', $addr);
+        $addr = preg_replace('/\s+\d{5}(-\d{4})?$/', '', $addr);
+    }
+    return $addr;
 }
 
 function parseFbos($html) {
