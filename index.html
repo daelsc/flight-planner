@@ -129,18 +129,6 @@ button:hover { background: #2563eb; }
 .trips-menu .trip-empty { padding: 1rem; text-align: center; color: #64748b; font-size: 0.82rem; }
 
 /* Save dialog */
-.save-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 400; justify-content: center; align-items: center; }
-.save-overlay.open { display: flex; }
-.save-dialog { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 1.25rem; width: 340px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-.save-dialog h3 { margin-bottom: 0.75rem; font-size: 0.95rem; color: #e2e8f0; }
-.save-dialog label { display: block; font-size: 0.78rem; color: #94a3b8; margin-bottom: 0.2rem; margin-top: 0.6rem; }
-.save-dialog select, .save-dialog input[type="text"], .save-dialog input[type="number"] {
-  width: 100%; padding: 0.4rem 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; font-size: 0.85rem; }
-.save-dialog select:focus, .save-dialog input:focus { outline: none; border-color: #3b82f6; }
-.save-dialog .btn-row { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; }
-.save-dialog .btn-row button { padding: 0.35rem 0.75rem; border-radius: 4px; font-size: 0.82rem; cursor: pointer; border: 1px solid #334155; }
-.save-dialog .btn-save { background: #3b82f6; color: white; border-color: #3b82f6; }
-.save-dialog .btn-cancel { background: #1e293b; color: #94a3b8; }
 
 /* Toast */
 .toast { position: fixed; top: 1rem; right: 1rem; background: #22c55e; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.82rem; opacity: 0; transition: opacity 0.3s; z-index: 300; pointer-events: none; }
@@ -299,21 +287,6 @@ button:hover { background: #2563eb; }
 </div><!-- /plannerView -->
 
 <div class="toast" id="toast">URL copied to clipboard</div>
-<div class="save-overlay" id="saveOverlay">
-  <div class="save-dialog">
-    <h3>Save Trip</h3>
-    <label>Existing trip</label>
-    <select id="saveSelect"><option value="">— New trip —</option></select>
-    <label>Trip #</label>
-    <input type="number" id="saveNumber" min="1">
-    <label>Name</label>
-    <input type="text" id="saveName" maxlength="100">
-    <div class="btn-row">
-      <button class="btn-cancel" onclick="closeSaveDialog()">Cancel</button>
-      <button class="btn-save" onclick="confirmSave()">Save</button>
-    </div>
-  </div>
-</div>
 
 <script>
 // ── Profiles ──
@@ -1199,80 +1172,23 @@ function getTripState() {
   return state;
 }
 
-function doSave(name, id, number) {
+function doSave(name, id) {
   const body = { name, state: getTripState() };
   if (id) body.id = id;
-  if (number != null) body.number = number;
   fetch('trips.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then(r => r.json())
     .then(d => {
       currentTripId = d.id;
       lastSavedState = JSON.stringify(getTripState());
-      showToast(d.number ? `Saved as #${d.number}` : 'Saved');
+      showToast('Saved');
     })
     .catch(() => showToast('Save failed'));
 }
 
 function saveTrip() {
   const currentRoute = legs.map(l => l.dep).concat(legs.length ? [legs[legs.length-1].arr] : []).filter(Boolean).join(' → ');
-  const defaultName = currentRoute || 'New Trip';
-  const sel = $('saveSelect');
-
-  fetch('trips.php').then(r => r.json()).then(trips => {
-    const maxNum = trips.reduce((m, t) => Math.max(m, t.number || 0), 0);
-    // Build dropdown
-    sel.innerHTML = `<option value="">— New trip (#${maxNum + 1}) —</option>`;
-    for (const t of trips) {
-      const opt = document.createElement('option');
-      opt.value = t.id;
-      opt.dataset.number = t.number || '';
-      opt.dataset.name = t.name;
-      opt.textContent = `#${t.number || '?'} — ${t.name}`;
-      sel.appendChild(opt);
-    }
-    // Default values
-    $('saveNumber').value = maxNum + 1;
-    $('saveName').value = defaultName;
-    // Pre-select current trip by ID, or by matching route
-    const match = (currentTripId && trips.find(t => t.id === currentTripId)) ||
-                  trips.find(t => t.route === currentRoute && currentRoute);
-    if (match) {
-      sel.value = match.id;
-      $('saveNumber').value = match.number || maxNum + 1;
-      $('saveName').value = match.name;
-    }
-    $('saveOverlay').classList.add('open');
-  }).catch(() => {
-    sel.innerHTML = '<option value="">— New trip —</option>';
-    $('saveNumber').value = 1;
-    $('saveName').value = defaultName;
-    $('saveOverlay').classList.add('open');
-  });
-}
-
-function closeSaveDialog() { $('saveOverlay').classList.remove('open'); }
-
-// When dropdown changes, update number and name fields
-$('saveSelect').addEventListener('change', function() {
-  const opt = this.options[this.selectedIndex];
-  if (this.value) {
-    $('saveNumber').value = opt.dataset.number || '';
-    $('saveName').value = opt.dataset.name || '';
-  } else {
-    // New trip — next available number
-    const maxNum = Array.from(this.options).reduce((m, o) => Math.max(m, +o.dataset.number || 0), 0);
-    $('saveNumber').value = maxNum + 1;
-  }
-});
-
-function confirmSave() {
-  const name = $('saveName').value.trim();
-  const number = +$('saveNumber').value;
-  if (!name) { $('saveName').focus(); return; }
-  if (!number) { $('saveNumber').focus(); return; }
-  const id = $('saveSelect').value || null;
-  closeSaveDialog();
-  doSave(name, id, number);
+  const name = currentRoute || 'New Trip';
+  doSave(name, currentTripId || null);
 }
 
 function toggleTripsMenu() {
@@ -1288,9 +1204,8 @@ function toggleTripsMenu() {
       for (const t of trips) {
         const item = document.createElement('div');
         item.className = 'trip-item';
-        const numLabel = t.number ? `#${t.number} ` : '';
         const dateLabel = fmtTripDate(t.date);
-        item.innerHTML = `<div><div class="trip-name">${numLabel}${dateLabel ? `<span class="dim" style="margin-right:0.3rem">${dateLabel}</span>` : ''}${esc(t.name)}</div><div class="trip-route">${esc(t.route)}</div></div>
+        item.innerHTML = `<div><div class="trip-name">${dateLabel ? `<span class="dim" style="margin-right:0.3rem">${dateLabel}</span>` : ''}${esc(t.name)}</div><div class="trip-route">${esc(t.route)}</div></div>
           <span class="trip-delete" data-id="${esc(t.id)}" title="Delete">✕</span>`;
         item.querySelector('.trip-name').parentElement.addEventListener('click', () => loadTrip(t.id));
         item.querySelector('.trip-delete').addEventListener('click', e => { e.stopPropagation(); deleteTrip(t.id); });
@@ -1341,17 +1256,6 @@ document.addEventListener('click', e => {
 
 let currentTripId = null;
 
-function shareURL() {
-  const url = buildURL();
-  history.replaceState(null, '', '?' + new URL(url).search.slice(1));
-  // Clipboard API requires HTTPS; use execCommand fallback for HTTP
-  let copied = false;
-  if (navigator.clipboard && location.protocol === 'https:') {
-    navigator.clipboard.writeText(url).then(() => showToast()).catch(() => fallbackCopy(url));
-  } else {
-    fallbackCopy(url);
-  }
-}
 function fallbackCopy(text) {
   const ta = document.createElement('textarea');
   ta.value = text;
@@ -1479,12 +1383,9 @@ function loadHomeTrips() {
       const div = document.createElement('div');
       div.className = 'home-trip';
       div.innerHTML = `
-        <div style="display:flex;align-items:center;min-width:0">
-          <span class="ht-num">#${t.number || '?'}</span>
-          <div style="min-width:0">
-            <div class="ht-name">${fmtTripDate(t.date) ? `<span style="color:#64748b;margin-right:0.4rem">${fmtTripDate(t.date)}</span>` : ''}${esc(t.name)}</div>
-            <div class="ht-route">${esc(t.route)}</div>
-          </div>
+        <div style="min-width:0">
+          <div class="ht-name">${fmtTripDate(t.date) ? `<span style="color:#64748b;margin-right:0.4rem">${fmtTripDate(t.date)}</span>` : ''}${esc(t.name)}</div>
+          <div class="ht-route">${esc(t.route)}</div>
         </div>
         <span class="ht-delete" title="Delete">✕</span>`;
       div.addEventListener('click', e => {
@@ -1493,7 +1394,7 @@ function loadHomeTrips() {
       });
       div.querySelector('.ht-delete').addEventListener('click', e => {
         e.stopPropagation();
-        if (!confirm(`Delete trip #${t.number || '?'} "${t.name}"?`)) return;
+        if (!confirm(`Delete trip "${t.name}"?`)) return;
         fetch('trips.php?action=delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id }) })
           .then(() => loadHomeTrips())
           .catch(() => showToast('Delete failed'));

@@ -25,7 +25,6 @@ h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.25rem; }
 .fbo-name { font-weight: 600; font-size: 0.82rem; }
 .fbo-phone { font-size: 0.8rem; color: #666; }
 .fbo-phone a { color: #2563eb; text-decoration: none; }
-.ground-row { text-align: center; padding: 0.4rem; color: #999; font-size: 0.78rem; }
 .no-trip { text-align: center; padding: 3rem; color: #999; }
 .loading { text-align: center; padding: 3rem; color: #999; }
 @media print {
@@ -325,14 +324,6 @@ async function loadAndRender() {
 
     html += `</div></div>`;
 
-    // Ground time between legs
-    if (i < computed.length - 1) {
-      const nextDep = computed[i+1].departTime;
-      if (arriveTime && nextDep) {
-        const gMin = Math.round((nextDep - arriveTime) / 60000);
-        html += `<div class="ground-row">${fmtDur(gMin)} on ground</div>`;
-      }
-    }
   }
 
   const saved = trip.saved ? new Date(trip.saved) : null;
