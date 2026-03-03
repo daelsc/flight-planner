@@ -83,7 +83,8 @@ button:hover { background: #2563eb; }
 .ground-input { width: 4rem; text-align: center; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 0.2rem 0.3rem; border-radius: 4px; font-size: 0.78rem; }
 .ground-input:focus { outline: none; border-color: #3b82f6; }
 .ground-input.computed { color: #64748b; border-style: dashed; }
-.dep-override { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 0.2rem 0.3rem; border-radius: 4px; font-size: 0.78rem; width: 12rem; }
+.dep-override { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 0.2rem 0.3rem; border-radius: 4px; font-size: 0.78rem; width: 6.5rem; font-family: 'SF Mono','Fira Code',monospace; }
+.date-input { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 0.2rem 0.3rem; border-radius: 4px; font-size: 0.78rem; width: 9rem; }
 .dep-override:focus { outline: none; border-color: #3b82f6; }
 .rest-toggle { font-size: 0.73rem; padding: 0.15rem 0.5rem; border-radius: 3px; cursor: pointer; border: 1px solid #334155; background: #1e293b; color: #94a3b8; }
 .rest-toggle:hover { border-color: #3b82f6; color: #e2e8f0; }
@@ -364,6 +365,18 @@ function fmtInTz(date, tz) {
   return { time, abbr };
 }
 
+// Combine HH:MM time with a reference date in a timezone.
+// If the resulting time is before refDate, assume next day.
+function timeToDate(timeStr, refDate, tz) {
+  const [h, m] = timeStr.split(':').map(Number);
+  // Get the date portion of refDate in the target timezone
+  const fp = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit' }).format(refDate);
+  let dt = dateInTz(`${fp}T${timeStr}`, tz);
+  // If result is before arrival, assume next day
+  if (dt < refDate) dt = new Date(dt.getTime() + 86400000);
+  return dt;
+}
+
 function fmtTzShort(tz) {
   try {
     const now = new Date();
@@ -619,22 +632,28 @@ function recalc() {
   let dutyStartTime = null; // set at show time before first leg or after rest
   let needsShowRow = true;  // insert show row before next leg
 
-  // Start time row at top of leg table
+  // Start date + time row at top of leg table
   if (legs.length) {
+    const startDate = startVal ? startVal.split('T')[0] : '';
+    const startTime = startVal ? startVal.split('T')[1] || '' : '';
+    const depLabel = legs[0].dep ? esc(legs[0].dep) : 'origin';
     const str = document.createElement('tr');
     str.className = 'ground-row';
-    const depLabel = legs[0].dep ? esc(legs[0].dep) : 'origin';
     str.innerHTML = `<td></td><td colspan="6" style="padding-left:1.5rem">
-      🕐 First departure from <strong>${depLabel}</strong>:
-      <input class="dep-override" type="datetime-local" id="startTimeInline" value="${esc(startVal||'')}"
-        title="Departure time (local time at first airport)">
+      🕐 <strong>${depLabel}</strong> —
+      <input class="date-input" type="date" id="startDateInline" value="${esc(startDate)}" title="Trip date">
+      depart <input class="dep-override" type="time" id="startTimeInline" value="${esc(startTime)}" title="Departure time (local)">
       ${firstDep ? `<span class="dim">${fmtTzShort(firstTz)}</span>` : ''}
     </td><td colspan="3"></td>`;
     tbody.appendChild(str);
-    str.querySelector('#startTimeInline').addEventListener('change', function() {
-      $('startTime').value = this.value;
+    function syncStartTime() {
+      const d = str.querySelector('#startDateInline').value;
+      const t = str.querySelector('#startTimeInline').value;
+      $('startTime').value = (d && t) ? d + 'T' + t : '';
       recalc();
-    });
+    }
+    str.querySelector('#startDateInline').addEventListener('change', syncStartTime);
+    str.querySelector('#startTimeInline').addEventListener('change', syncStartTime);
   }
 
   for (let i = 0; i < legs.length; i++) {
@@ -661,9 +680,10 @@ function recalc() {
       // If previous leg was a rest stop, include departure time picker here
       const prevLeg = i > 0 ? legs[i-1] : null;
       let depPickerHtml = '';
-      if (prevLeg && prevLeg.rest && prevLeg._depInputVal !== undefined) {
-        depPickerHtml = ` — depart <input class="dep-override" type="datetime-local" value="${esc(prevLeg._depInputVal)}" data-l="${i-1}">
-          <span class="dim">${prevLeg._nextDepTz ? fmtTzShort(prevLeg._nextDepTz) : ''}</span>`;
+      if (prevLeg && prevLeg.rest && prevLeg._depTimeVal !== undefined) {
+        depPickerHtml = ` — depart <input class="dep-override" type="time" value="${esc(prevLeg._depTimeVal)}" data-l="${i-1}">
+          <span class="dim">${prevLeg._nextDepTz ? fmtTzShort(prevLeg._nextDepTz) : ''}</span>
+          ${prevLeg._depDateLabel ? `<span class="date-lbl" style="margin-left:0.3rem">${prevLeg._depDateLabel}</span>` : ''}`;
       }
 
       const str = document.createElement('tr');
@@ -752,27 +772,27 @@ function recalc() {
       let depOverrideTime = null, gMin;
 
       if (leg.nextDep && arriveTime) {
-        // User set a departure time — compute ground time from it
-        depOverrideTime = dateInTz(leg.nextDep, nextDepTz);
+        // User set a departure time (HH:MM) — combine with arrival date in nextDepTz
+        depOverrideTime = timeToDate(leg.nextDep, arriveTime, nextDepTz);
         gMin = Math.max(0, Math.round((depOverrideTime - arriveTime) / 60000));
       } else if (arriveTime) {
-        // No departure set — auto-fill default
         gMin = leg.groundMin ?? defaultMin;
         depOverrideTime = new Date(arriveTime.getTime() + gMin * 60000);
-        // Pre-fill the nextDep value for the input
       } else {
         gMin = leg.groundMin ?? defaultMin;
       }
 
-      // Format the departure time for the input
-      let depInputVal = leg.nextDep || '';
-      if (!depInputVal && depOverrideTime) {
-        // Show the computed default in the input as a starting point
+      // Format time for input (HH:MM only)
+      let depTimeVal = leg.nextDep || '';
+      if (!depTimeVal && depOverrideTime && nextDepTz) {
         const dp = tzParts(depOverrideTime, nextDepTz);
-        // We need full date parts for the input
-        const fp = new Intl.DateTimeFormat('en-CA', { timeZone: nextDepTz, year:'numeric', month:'2-digit', day:'2-digit' }).format(depOverrideTime);
         const pad = n => n.toString().padStart(2,'0');
-        depInputVal = `${fp}T${pad(dp.h)}:${pad(dp.m)}`;
+        depTimeVal = `${pad(dp.h)}:${pad(dp.m)}`;
+      }
+      // Date label for display
+      let depDateLabel = '';
+      if (depOverrideTime && nextDepTz) {
+        depDateLabel = depOverrideTime.toLocaleString('en-US', { timeZone: nextDepTz, month:'short', day:'numeric' });
       }
 
       if (leg.rest) {
@@ -795,8 +815,8 @@ function recalc() {
         tbody.appendChild(rtr);
 
         // Departure time goes into the show row after the rest block
-        // Store it so the show row can include it
-        leg._depInputVal = depInputVal;
+        leg._depTimeVal = depTimeVal;
+        leg._depDateLabel = depDateLabel;
         leg._nextDepTz = nextDepTz;
       } else {
         // ── Normal ground row ──
@@ -805,8 +825,9 @@ function recalc() {
         gtr.innerHTML = `<td></td>
           <td colspan="6" style="padding-left:1.5rem">
             ⏱ <strong>${esc(leg.arr||'?')}</strong>
-            — depart <input class="dep-override" type="datetime-local" value="${esc(depInputVal)}" data-l="${i}">
+            — depart <input class="dep-override" type="time" value="${esc(depTimeVal)}" data-l="${i}">
             <span class="dim">${nextDepTz ? fmtTzShort(nextDepTz) : ''}</span>
+            ${depDateLabel ? `<span class="date-lbl" style="margin-left:0.3rem">${depDateLabel}</span>` : ''}
             <span class="dim" style="margin-left:0.3rem">(${fmtDur(gMin)} ground)</span>
             <button class="rest-toggle" onclick="toggleRest(${i})">+ Rest</button>
           </td><td colspan="3"></td>`;
