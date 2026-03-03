@@ -93,9 +93,11 @@ if ($method === 'POST') {
     exit;
 }
 
-// Delete a trip
-if ($method === 'DELETE') {
-    $id = preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['id'] ?? '');
+// Delete a trip (POST with action=delete, or DELETE method)
+if (($method === 'POST' && ($_GET['action'] ?? '') === 'delete') || $method === 'DELETE') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = $input['id'] ?? ($_GET['id'] ?? '');
+    $id = preg_replace('/[^a-zA-Z0-9_-]/', '', $id);
     $file = "$dataDir/$id.json";
     if (file_exists($file)) {
         unlink($file);

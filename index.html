@@ -1056,21 +1056,47 @@ function getTripState() {
   return state;
 }
 
-function saveTrip() {
-  const route = legs.map(l => l.dep).concat(legs.length ? [legs[legs.length-1].arr] : []).filter(Boolean).join(' → ');
-  const defaultName = route || 'New Trip';
-  const name = prompt('Trip name:', defaultName);
-  if (!name) return;
+function doSave(name, id) {
   const body = { name, state: getTripState() };
-  // Check if we have a loaded trip ID to overwrite
-  if (currentTripId) body.id = currentTripId;
+  if (id) body.id = id;
   fetch('trips.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then(r => r.json())
     .then(d => {
       currentTripId = d.id;
-      showToast('Saved');
+      showToast(d.number ? `Saved as #${d.number}` : 'Saved');
     })
     .catch(() => showToast('Save failed'));
+}
+
+function saveTrip() {
+  const currentRoute = legs.map(l => l.dep).concat(legs.length ? [legs[legs.length-1].arr] : []).filter(Boolean).join(' → ');
+  const defaultName = currentRoute || 'New Trip';
+
+  // Check for existing trips with matching route
+  fetch('trips.php').then(r => r.json()).then(trips => {
+    const match = trips.find(t => t.route === currentRoute && currentRoute);
+    if (match) {
+      const choice = confirm(`Trip #${match.number || '?'} "${match.name}" has the same route.\n\nOK = Update existing trip\nCancel = Save as new trip`);
+      if (choice) {
+        const name = prompt('Trip name:', match.name);
+        if (!name) return;
+        doSave(name, match.id);
+      } else {
+        const name = prompt('Trip name:', defaultName);
+        if (!name) return;
+        doSave(name, null);
+      }
+    } else {
+      const name = prompt('Trip name:', defaultName);
+      if (!name) return;
+      doSave(name, currentTripId);
+    }
+  }).catch(() => {
+    // Fallback if list fetch fails
+    const name = prompt('Trip name:', defaultName);
+    if (!name) return;
+    doSave(name, currentTripId);
+  });
 }
 
 function toggleTripsMenu() {
@@ -1117,13 +1143,17 @@ function loadTrip(id) {
 
 function deleteTrip(id) {
   if (!confirm('Delete this trip?')) return;
-  fetch('trips.php?id=' + encodeURIComponent(id), { method: 'DELETE' })
+  fetch('trips.php?action=delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
     .then(() => {
       if (currentTripId === id) currentTripId = null;
-      toggleTripsMenu(); // refresh list
-      toggleTripsMenu();
+      refreshTripsMenu();
     })
     .catch(() => showToast('Delete failed'));
+}
+
+function refreshTripsMenu() {
+  $('tripsMenu').classList.remove('open');
+  setTimeout(() => toggleTripsMenu(), 100);
 }
 
 // Close trips menu on outside click
