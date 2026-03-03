@@ -17,6 +17,15 @@ h2 { font-weight: 600; margin-bottom: 0.5rem; color: #94a3b8; text-transform: up
 .settings-bar input[type="number"] { width: 4.5rem; }
 .settings-bar input[type="datetime-local"] { width: 12.5rem; }
 .sg { display: flex; align-items: center; gap: 0.3rem; }
+.view-toggle-wrap { gap: 0.4rem; }
+.view-label { font-size: 0.78rem; color: #64748b; cursor: pointer; transition: color 0.2s; }
+.view-label.active { color: #e2e8f0; font-weight: 600; }
+.view-toggle { position: relative; width: 36px; height: 20px; display: inline-block; }
+.view-toggle input { opacity: 0; width: 0; height: 0; }
+.view-slider { position: absolute; cursor: pointer; inset: 0; background: #334155; border-radius: 10px; transition: background 0.2s; }
+.view-slider::before { content: ''; position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px; background: #e2e8f0; border-radius: 50%; transition: transform 0.2s; }
+.view-toggle input:checked + .view-slider { background: #3b82f6; }
+.view-toggle input:checked + .view-slider::before { transform: translateX(16px); }
 button { background: #3b82f6; color: white; border: none; padding: 0.35rem 0.7rem; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: 500; }
 button:hover { background: #2563eb; }
 .btn-secondary { background: #334155; }
@@ -182,12 +191,13 @@ button:hover { background: #2563eb; }
 <div id="plannerView" style="display:none">
 <div class="settings-bar">
   <h1>Trip Planner</h1>
-  <div class="sg">
-    <label>View</label>
-    <select id="viewMode" onchange="recalc()">
-      <option value="pax">Passenger</option>
-      <option value="crew">Crew</option>
-    </select>
+  <div class="sg view-toggle-wrap">
+    <span class="view-label" id="viewLabelPax" onclick="$('viewMode').checked=false;recalc()">Passenger</span>
+    <label class="view-toggle">
+      <input type="checkbox" id="viewMode" onchange="recalc()">
+      <span class="view-slider"></span>
+    </label>
+    <span class="view-label" id="viewLabelCrew" onclick="$('viewMode').checked=true;recalc()">Crew</span>
   </div>
   <div class="sg">
     <label>Aircraft</label>
@@ -701,7 +711,9 @@ function recalc() {
   const profile = getProfile();
   const crewCount = getCrewCount();
   const showMin = getShowMin();
-  const isCrew = $('viewMode').value === 'crew';
+  const isCrew = $('viewMode').checked;
+  $('viewLabelPax').className = 'view-label' + (!isCrew ? ' active' : '');
+  $('viewLabelCrew').className = 'view-label' + (isCrew ? ' active' : '');
   const tbody = $('legsBody');
   tbody.innerHTML = '';
 
