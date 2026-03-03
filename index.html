@@ -972,7 +972,7 @@ function recalc() {
       const groundInvalid = depBeforeArrival || groundTooShort;
       let groundWarnMsg = '';
       if (depBeforeArrival) groundWarnMsg = 'Departs before arrival';
-      else if (groundTooShort) groundWarnMsg = `Ground time less than ${profile.startup}m startup`;
+      else if (groundTooShort) groundWarnMsg = `Ground time less than ${profile.startup}m`;
 
       // Store for next leg's dep cell
       nextLegDepDateVal = depDateVal;
