@@ -315,6 +315,8 @@ function fetchFbos(icao) {
   fboCache[icao] = { fbos: [], loading: true, fetched: false };
   fetch(`fbo.php?icao=${encodeURIComponent(icao)}`).then(r => r.json()).then(data => {
     fboCache[icao] = { fbos: data.fbos || [], loading: false, fetched: true };
+    // Replace loading placeholders with actual selects
+    document.querySelectorAll('.fbo-loading').forEach(el => el.remove());
     recalc();
   }).catch(() => {
     fboCache[icao] = { fbos: [], loading: false, fetched: true };
@@ -1188,7 +1190,15 @@ function doSave(name, id) {
 function saveTrip() {
   const currentRoute = legs.map(l => l.dep).concat(legs.length ? [legs[legs.length-1].arr] : []).filter(Boolean).join(' → ');
   const name = currentRoute || 'New Trip';
-  doSave(name, currentTripId || null);
+  if (currentTripId) {
+    doSave(name, currentTripId);
+  } else {
+    // Find existing trip with same route to avoid duplicates
+    fetch('trips.php').then(r => r.json()).then(trips => {
+      const match = trips.find(t => t.route === currentRoute && currentRoute);
+      doSave(name, match ? match.id : null);
+    }).catch(() => doSave(name, null));
+  }
 }
 
 function toggleTripsMenu() {

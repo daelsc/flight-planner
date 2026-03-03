@@ -297,7 +297,7 @@ async function loadAndRender() {
     if (depFboInfo) {
       html += `<div class="fbo-info">`;
       html += `<div class="fbo-name">${esc(depFboInfo.name)}</div>`;
-      if (depFboInfo.address) html += `<div class="fbo-detail">${esc(depFboInfo.address)}</div>`;
+      if (depFboInfo.address) html += `<div class="fbo-detail"><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(depFboInfo.address)}" target="_blank">${esc(depFboInfo.address)}</a></div>`;
       if (depFboInfo.phone) html += `<div class="fbo-detail"><a href="tel:${esc(depFboInfo.phone)}">${esc(depFboInfo.phone)}</a></div>`;
       html += `</div>`;
     }
@@ -318,7 +318,7 @@ async function loadAndRender() {
     if (arrFboInfo) {
       html += `<div class="fbo-info">`;
       html += `<div class="fbo-name">${esc(arrFboInfo.name)}</div>`;
-      if (arrFboInfo.address) html += `<div class="fbo-detail">${esc(arrFboInfo.address)}</div>`;
+      if (arrFboInfo.address) html += `<div class="fbo-detail"><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(arrFboInfo.address)}" target="_blank">${esc(arrFboInfo.address)}</a></div>`;
       if (arrFboInfo.phone) html += `<div class="fbo-detail"><a href="tel:${esc(arrFboInfo.phone)}">${esc(arrFboInfo.phone)}</a></div>`;
       html += `</div>`;
     }
