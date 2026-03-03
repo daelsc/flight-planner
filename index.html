@@ -874,8 +874,8 @@ function recalc() {
       const nextDepApt = aptIdx[nextLeg.dep];
       const nextDepTz = nextDepApt?.tz || arrTz || firstTz;
 
-      // Default next departure: arrival + startup+shutdown (or 10h for rest)
-      let defaultMin = leg.rest ? 600 : (profile.startup + profile.shutdown);
+      // Default next departure: arrival + startup+shutdown
+      let defaultMin = profile.startup + profile.shutdown;
       let depOverrideTime = null, gMin;
 
       if (leg.nextDep && arriveTime) {
@@ -906,7 +906,10 @@ function recalc() {
         depDateVal = new Intl.DateTimeFormat('en-CA', { timeZone: nextDepTz, year:'numeric', month:'2-digit', day:'2-digit' }).format(depOverrideTime);
       }
 
-      if (leg.rest) {
+      // Auto-detect rest: ground time >= 10h qualifies as crew rest
+      const isRest = leg.rest || gMin >= 600;
+
+      if (isRest) {
         // ── Big rest block (departure time renders near next leg) ──
         // Rest starts 30 min after landing, ends at show time for next leg
         const restStartTime = arriveTime ? new Date(arriveTime.getTime() + 30 * 60000) : null;
@@ -966,7 +969,7 @@ function recalc() {
       }
 
       // If this was a rest stop, next leg gets a show row
-      if (leg.rest) needsShowRow = true;
+      if (isRest) needsShowRow = true;
     } else {
       if (arriveTime) currentTime = arriveTime;
     }
@@ -1059,7 +1062,10 @@ function updateCrew(legCalc, crewCount, showMin) {
     }
 
     // Rest stop: reset duty clock for next duty day
-    if (i < legs.length - 1 && legs[i].rest && legCalc[i+1]?.departTime) {
+    const legGroundMin = (i < legs.length - 1 && lc.arriveTime && legCalc[i+1]?.departTime)
+      ? (legCalc[i+1].departTime - lc.arriveTime) / 60000 : 0;
+    const legIsRest = legs[i].rest || legGroundMin >= 600;
+    if (i < legs.length - 1 && legIsRest && legCalc[i+1]?.departTime) {
       dutyDay++;
       dutyStart = new Date(legCalc[i+1].departTime.getTime() - showMin * 60000);
       dutyFlightMin = 0;
@@ -1138,6 +1144,7 @@ function doSave(name, id, number) {
     .then(r => r.json())
     .then(d => {
       currentTripId = d.id;
+      lastSavedState = JSON.stringify(getTripState());
       showToast(d.number ? `Saved as #${d.number}` : 'Saved');
     })
     .catch(() => showToast('Save failed'));
@@ -1353,7 +1360,16 @@ function showPlanner() {
   $('plannerView').style.display = '';
 }
 
+let lastSavedState = '';
+
 function goHome() {
+  if (legs.length) {
+    const currentState = JSON.stringify(getTripState());
+    if (currentState !== lastSavedState) {
+      const choice = confirm('You have unsaved changes.\n\nOK = Save before leaving\nCancel = Discard changes');
+      if (choice) { saveTrip(); return; }
+    }
+  }
   showHome();
 }
 
@@ -1370,6 +1386,7 @@ function startNewTrip() {
   renderTZChips(); buildTZMenu();
   showPlanner();
   recalc();
+  lastSavedState = JSON.stringify(getTripState());
 }
 
 function loadHomeTrips() {
@@ -1423,6 +1440,7 @@ function loadTripAndShow(id) {
         parseURL();
         showPlanner();
         recalc();
+        lastSavedState = JSON.stringify(getTripState());
         fetchWinds();
       });
     })
