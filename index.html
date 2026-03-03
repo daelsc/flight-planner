@@ -214,6 +214,8 @@ button:hover { background: #2563eb; }
     <span class="dim">min</span>
   </div>
   <input type="hidden" id="startTime">
+  <input type="hidden" id="startDateStore">
+  <input type="hidden" id="startTimeStore">
   <div class="tz-dropdown">
     <button class="btn-secondary btn-sm" id="tzBtn">TZ +</button>
     <div class="tz-menu" id="tzMenu"></div>
@@ -704,8 +706,9 @@ function recalc() {
 
   // Crew show + departure time rows at top of leg table
   if (legs.length) {
-    const startDate = startVal ? startVal.split('T')[0] : '';
-    const startTime = startVal ? startVal.split('T')[1] || '' : '';
+    // Read from separate stores so partial entry is preserved across recalc
+    const startDate = $('startDateStore').value || (startVal ? startVal.split('T')[0] : '');
+    const startTime = $('startTimeStore').value || (startVal ? startVal.split('T')[1] || '' : '');
     const depLabel = legs[0].dep ? esc(legs[0].dep) : 'origin';
 
     // Compute show time for display
@@ -736,10 +739,11 @@ function recalc() {
     function syncStartTime() {
       const d = depRow.querySelector('#startDateInline').value;
       const t = depRow.querySelector('#startTimeInline').value;
+      // Always store each value separately so partial entry survives recalc
+      $('startDateStore').value = d;
+      $('startTimeStore').value = t;
       $('startTime').value = (d && t) ? d + 'T' + t : '';
-      // Delay recalc so the other input isn't destroyed mid-interaction
-      clearTimeout(syncStartTime._timer);
-      syncStartTime._timer = setTimeout(recalc, 50);
+      recalc();
     }
     depRow.querySelector('#startDateInline').addEventListener('change', syncStartTime);
     depRow.querySelector('#startTimeInline').addEventListener('change', syncStartTime);
@@ -1290,7 +1294,12 @@ function parseURL() {
   if (p.has('fl')) $('pAlt').value = p.get('fl');
   if (p.has('c')) $('crew').value = p.get('c');
   if (p.has('sh')) $('showTime').value = p.get('sh');
-  if (p.has('t')) $('startTime').value = p.get('t');
+  if (p.has('t')) {
+    $('startTime').value = p.get('t');
+    const parts = p.get('t').split('T');
+    $('startDateStore').value = parts[0] || '';
+    $('startTimeStore').value = parts[1] || '';
+  }
   if (p.has('tz')) {
     extraTZ = p.get('tz').split(',').filter(Boolean);
     renderTZChips(); buildTZMenu();
@@ -1337,7 +1346,7 @@ function startNewTrip() {
   extraTZ = []; tzUserRemoved.clear();
   $('aircraft').value = 'G550';
   $('pSpeed').value = ''; $('pStartup').value = ''; $('pShutdown').value = ''; $('pAlt').value = ''; $('showTime').value = '';
-  $('startTime').value = '';
+  $('startTime').value = ''; $('startDateStore').value = ''; $('startTimeStore').value = '';
   $('crew').value = '2';
   updatePlaceholders();
   renderTZChips(); buildTZMenu();
