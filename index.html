@@ -659,21 +659,16 @@ function recalc() {
   let dutyStartTime = null; // set at show time before first leg or after rest
   let needsShowRow = true;  // insert show row before next leg
 
-  // Crew show + departure time rows at top of leg table
+  // Crew show row at top (crew view only)
   if (legs.length) {
-    // Read from separate stores so partial entry is preserved across recalc
-    const startDate = $('startDateStore').value || (startVal ? startVal.split('T')[0] : '');
-    const startTime = $('startTimeStore').value || (startVal ? startVal.split('T')[1] || '' : '');
     const depLabel = legs[0].dep ? esc(legs[0].dep) : 'origin';
 
-    // Compute show time for display
     let showTimeDisplay = '';
     if (currentTime && showMin > 0 && firstTz) {
       const showTime = new Date(currentTime.getTime() - showMin * 60000);
       showTimeDisplay = fmtTimeCell(showTime, firstTz);
     }
 
-    // Crew show row (crew view only)
     if (isCrew) {
       const showRow = document.createElement('tr');
       showRow.className = 'show-row';
@@ -682,42 +677,29 @@ function recalc() {
       tbody.appendChild(showRow);
     }
 
-    // Departure time row
-    const depRow = document.createElement('tr');
-    depRow.className = 'ground-row';
-    depRow.innerHTML = `<td></td><td colspan="6" style="padding-left:1.5rem">
-      ⏱ <strong>${depLabel}</strong> —
-      <input class="date-input" type="date" id="startDateInline" value="${esc(startDate)}" title="Trip date">
-      depart <input class="dep-override" type="text" id="startTimeInline" value="${esc(startTime)}" placeholder="HH:MM" maxlength="5" title="Departure time (local 24h)">
-      ${firstDep ? `<span class="dim">${fmtTzShort(firstTz)}</span>` : ''}
-    </td><td colspan="3"></td>`;
-    tbody.appendChild(depRow);
-
-    function syncStartTime() {
-      const d = depRow.querySelector('#startDateInline').value;
-      const t = depRow.querySelector('#startTimeInline').value;
-      // Always store each value separately so partial entry survives recalc
-      $('startDateStore').value = d;
-      $('startTimeStore').value = t;
-      $('startTime').value = (d && t) ? d + 'T' + t : '';
-      recalc();
-    }
-    depRow.querySelector('#startDateInline').addEventListener('change', syncStartTime);
-    setupTimeInput(depRow.querySelector('#startTimeInline'), syncStartTime);
-
-    // Mark first leg's show row as handled
     needsShowRow = false;
     if (currentTime && showMin > 0) {
       dutyStartTime = new Date(currentTime.getTime() - showMin * 60000);
     }
   }
 
+  // Pre-compute first leg's departure date/time for embedding in dep cell
+  const startDate0 = $('startDateStore').value || (startVal ? startVal.split('T')[0] : '');
+  const startTime0 = $('startTimeStore').value || (startVal ? startVal.split('T')[1] || '' : '');
+
   // Enforce dep = previous arr for legs after the first
   for (let i = 1; i < legs.length; i++) {
     if (legs[i-1].arr) legs[i].dep = legs[i-1].arr;
   }
 
-  let restDepInfo = null;
+  // Track departure date/time for next leg's dep cell
+  let nextLegDepDateVal = startDate0;
+  let nextLegDepTimeVal = startTime0;
+  let nextLegDepIndex = -1; // -1 = first leg (start time), >= 0 = leg index for nextDep
+  let nextLegGMin = null;
+  let nextLegGroundInvalid = false;
+  let nextLegGroundWarnMsg = '';
+
   for (let i = 0; i < legs.length; i++) {
     const leg = legs[i];
     const depApt = aptIdx[leg.dep], arrApt = aptIdx[leg.arr];
@@ -728,7 +710,7 @@ function recalc() {
 
     // Wind-adjusted speed
     let gs = profile.speed;
-    if (leg.wind) gs = Math.max(50, profile.speed - leg.wind.headwind); // headwind positive = slower
+    if (leg.wind) gs = Math.max(50, profile.speed - leg.wind.headwind);
 
     // Flight time
     let flightMin = (distNm != null && gs > 0) ? (distNm / gs) * 60 : null;
@@ -747,28 +729,6 @@ function recalc() {
         tbody.appendChild(str);
       }
       needsShowRow = false;
-
-      // Departure time row after rest (rendered here so it's next to the departing leg)
-      if (restDepInfo && isCrew) {
-        const rd = restDepInfo;
-        const dtr = document.createElement('tr');
-        dtr.className = 'ground-row';
-        dtr.innerHTML = `<td></td>
-          <td colspan="6" style="padding-left:1.5rem">
-            ⏱ <strong>${esc(leg.dep||'?')}</strong>
-            — <input class="date-input" type="date" value="${esc(rd.depDateVal)}" data-l="${rd.legIndex}" data-f="date">
-            depart <input class="dep-override" type="text" value="${esc(rd.depTimeVal)}" data-l="${rd.legIndex}" data-f="time" placeholder="HH:MM" maxlength="5">
-            <span class="dim">${rd.nextDepTz ? fmtTzShort(rd.nextDepTz) : ''}</span>
-            <span class="dim" style="margin-left:0.3rem">(${fmtDur(rd.gMin)} ground)</span>
-          </td><td colspan="3"></td>`;
-        tbody.appendChild(dtr);
-        setupTimeInput(dtr.querySelector('[data-f="time"]'), v => { legs[rd.legIndex].nextDep = v; recalc(); });
-        dtr.querySelector('[data-f="date"]').addEventListener('change', function() {
-          legs[rd.legIndex].nextDepDate = this.value;
-          recalc();
-        });
-        restDepInfo = null;
-      }
     }
 
     // Departure/arrival times
@@ -823,15 +783,38 @@ function recalc() {
     const depRwy = rwyWarn(depApt);
     const arrRwy = rwyWarn(arrApt);
 
+    // Departure date/time inputs for this leg's dep cell
+    const curDepDate = nextLegDepDateVal;
+    const curDepTime = nextLegDepTimeVal;
+    const curDepIndex = nextLegDepIndex;
+    const curGMin = nextLegGMin;
+    const curGroundInvalid = nextLegGroundInvalid;
+    const curGroundWarnMsg = nextLegGroundWarnMsg;
+
+    // Build dep cell with date/time embedded
+    let depCellHtml;
+    if (i === 0) {
+      depCellHtml = `<div class="icao-wrapper"><input class="icao-input${depInvalid ? ' invalid' : ''}" value="${esc(leg.dep)}" data-l="${i}" data-f="dep" placeholder="ICAO" spellcheck="false"></div>`;
+    } else {
+      depCellHtml = `<span class="mono" style="font-weight:600">${esc(leg.dep)}</span>`;
+    }
+    if (depCity) depCellHtml += `<div class="icao-city">${esc(depCity)}</div>`;
+    depCellHtml += depRwy;
+    // Date/time inputs
+    depCellHtml += `<div class="dep-dt" style="margin-top:2px">`;
+    depCellHtml += `<input class="date-input" type="date" value="${esc(curDepDate)}" data-dep-l="${curDepIndex}" data-dep-f="date">`;
+    depCellHtml += ` <input class="dep-override" type="text" value="${esc(curDepTime)}" data-dep-l="${curDepIndex}" data-dep-f="time" placeholder="HH:MM" maxlength="5">`;
+    depCellHtml += `</div>`;
+    if (depTzLabel) depCellHtml += `<div class="icao-tz">${depTzLabel}</div>`;
+    if (depInvalid) depCellHtml += '<div class="validation-warn">Unknown</div>';
+    if (curGroundInvalid) depCellHtml += `<div class="validation-warn">⚠ ${curGroundWarnMsg}</div>`;
+
     // Build leg row
     const tr = document.createElement('tr');
     tr.className = 'leg-row' + (legInvalid ? ' invalid' : '');
     tr.innerHTML = `
       <td>${i+1}</td>
-      <td>${i === 0
-        ? `<div class="icao-wrapper"><input class="icao-input${depInvalid ? ' invalid' : ''}" value="${esc(leg.dep)}" data-l="${i}" data-f="dep" placeholder="ICAO" spellcheck="false"></div>`
-        : `<span class="mono" style="font-weight:600">${esc(leg.dep)}</span>`
-      }${depCity ? `<div class="icao-city">${esc(depCity)}</div>` : ''}${depRwy}${depTzLabel ? `<div class="icao-tz">${depTzLabel}</div>` : ''}${depInvalid ? '<div class="validation-warn">Unknown</div>' : ''}</td>
+      <td>${depCellHtml}</td>
       <td class="arrow">→</td>
       <td><div class="icao-wrapper"><input class="icao-input${arrInvalid ? ' invalid' : ''}" value="${esc(leg.arr)}" data-l="${i}" data-f="arr" placeholder="ICAO" spellcheck="false"></div>${arrCity ? `<div class="icao-city">${esc(arrCity)}</div>` : ''}${arrRwy}${arrTzLabel ? `<div class="icao-tz">${arrTzLabel}</div>` : ''}${arrInvalid ? '<div class="validation-warn">Unknown</div>' : ''}${sameApt ? '<div class="validation-warn">Same as departure</div>' : ''}</td>
       <td class="mono">${distNm!=null ? Math.round(distNm).toLocaleString() : '—'}</td>
@@ -848,12 +831,39 @@ function recalc() {
       </td>`;
     tbody.appendChild(tr);
 
-    // Setup autocomplete
+    // Setup autocomplete for ICAO inputs
     tr.querySelectorAll('.icao-input').forEach(inp => {
       const li = +inp.dataset.l, f = inp.dataset.f;
       setupAC(inp, li, f);
       inp.addEventListener('blur', () => { const v = inp.value.toUpperCase().trim(); if (v !== legs[li][f]) { legs[li][f] = v; recalc(); } });
     });
+
+    // Setup date/time handlers in dep cell
+    const depDateInput = tr.querySelector('[data-dep-f="date"]');
+    const depTimeInput = tr.querySelector('[data-dep-f="time"]');
+    if (curDepIndex === -1) {
+      // First leg: sync to start time stores
+      depDateInput.addEventListener('change', function() {
+        $('startDateStore').value = this.value;
+        const t = $('startTimeStore').value;
+        $('startTime').value = (this.value && t) ? this.value + 'T' + t : '';
+        recalc();
+      });
+      setupTimeInput(depTimeInput, function(v) {
+        $('startTimeStore').value = v;
+        const d = $('startDateStore').value;
+        $('startTime').value = (d && v) ? d + 'T' + v : '';
+        recalc();
+      });
+    } else {
+      // Subsequent legs: sync to previous leg's nextDep/nextDepDate
+      const li = curDepIndex;
+      depDateInput.addEventListener('change', function() {
+        legs[li].nextDepDate = this.value;
+        recalc();
+      });
+      setupTimeInput(depTimeInput, v => { legs[li].nextDep = v; recalc(); });
+    }
 
     legCalc.push({ distNm, flightMin, blockMin, departTime, arriveTime, depTz, arrTz });
 
@@ -866,16 +876,13 @@ function recalc() {
       // Default next departure: arrival + startup+shutdown
       let defaultMin = profile.startup + profile.shutdown;
       let depOverrideTime = null, gMin;
-      let depBeforeArrival = false; // flag if user-entered departure is before arrival
+      let depBeforeArrival = false;
 
       if ((leg.nextDep || leg.nextDepDate) && arriveTime) {
-        // User set a departure time and/or date
         const useDate = leg.nextDepDate || new Intl.DateTimeFormat('en-CA', { timeZone: nextDepTz, year:'numeric', month:'2-digit', day:'2-digit' }).format(arriveTime);
         const useTime = leg.nextDep || new Intl.DateTimeFormat('en-GB', { timeZone: nextDepTz, hour:'2-digit', minute:'2-digit', hour12:false }).format(arriveTime);
         depOverrideTime = dateInTz(`${useDate}T${useTime}`, nextDepTz);
-        // Check if user's entered date+time is before arrival
         if (leg.nextDepDate && depOverrideTime < arriveTime) depBeforeArrival = true;
-        // If computed time is before arrival (e.g. same time next day not set), advance
         while (depOverrideTime < arriveTime) depOverrideTime = new Date(depOverrideTime.getTime() + 86400000);
         gMin = Math.max(0, Math.round((depOverrideTime - arriveTime) / 60000));
       } else if (arriveTime) {
@@ -885,31 +892,38 @@ function recalc() {
         gMin = leg.groundMin ?? defaultMin;
       }
 
-      // Format time for input (HH:MM only)
+      // Format time for next leg's dep cell
       let depTimeVal = leg.nextDep || '';
       if (!depTimeVal && depOverrideTime && nextDepTz) {
         const dp = tzParts(depOverrideTime, nextDepTz);
         const pad = n => n.toString().padStart(2,'0');
         depTimeVal = `${pad(dp.h)}:${pad(dp.m)}`;
       }
-      // Date value for input (YYYY-MM-DD in local tz)
       let depDateVal = leg.nextDepDate || '';
       if (!depDateVal && depOverrideTime && nextDepTz) {
         depDateVal = new Intl.DateTimeFormat('en-CA', { timeZone: nextDepTz, year:'numeric', month:'2-digit', day:'2-digit' }).format(depOverrideTime);
       }
 
-      // Ground time validation: too short to startup, or departure before arrival
+      // Ground time validation
       const groundTooShort = arriveTime && gMin < profile.startup && !depBeforeArrival;
       const groundInvalid = depBeforeArrival || groundTooShort;
       let groundWarnMsg = '';
       if (depBeforeArrival) groundWarnMsg = 'Departs before arrival';
       else if (groundTooShort) groundWarnMsg = `Ground time less than ${profile.startup}m startup`;
 
+      // Store for next leg's dep cell
+      nextLegDepDateVal = depDateVal;
+      nextLegDepTimeVal = depTimeVal;
+      nextLegDepIndex = i;
+      nextLegGMin = gMin;
+      nextLegGroundInvalid = groundInvalid;
+      nextLegGroundWarnMsg = groundWarnMsg;
+
       // Auto-detect rest: ground time >= 10h qualifies as crew rest
       const isRest = leg.rest || gMin >= 600;
 
       if (isRest && isCrew) {
-        // ── Big rest block (crew view only) ──
+        // ── Rest block (crew view only) ──
         const restStartTime = arriveTime ? new Date(arriveTime.getTime() + 30 * 60000) : null;
         const restEndTime = depOverrideTime ? new Date(depOverrideTime.getTime() - showMin * 60000) : null;
         const restMin = (restStartTime && restEndTime) ? Math.max(0, (restEndTime - restStartTime) / 60000) : null;
@@ -929,29 +943,16 @@ function recalc() {
             </div>
           </td><td></td>`;
         tbody.appendChild(rtr);
-
-        // Store dep time info to render next to the departing leg
-        restDepInfo = { depTimeVal, depDateVal, nextDepTz, legIndex: i, gMin };
       } else {
-        // ── Ground row (shown in both views) ──
+        // ── Simple ground time row ──
         const gtr = document.createElement('tr');
         gtr.className = 'ground-row' + (groundInvalid ? ' invalid' : '');
         gtr.innerHTML = `<td></td>
-          <td colspan="6" style="padding-left:1.5rem">
-            ⏱ <strong>${esc(leg.arr||'?')}</strong>
-            — <input class="date-input" type="date" value="${esc(depDateVal)}" data-l="${i}" data-f="date">
-            depart <input class="dep-override" type="text" value="${esc(depTimeVal)}" data-l="${i}" data-f="time" placeholder="HH:MM" maxlength="5">
-            <span class="dim">${nextDepTz ? fmtTzShort(nextDepTz) : ''}</span>
-            <span class="dim" style="margin-left:0.3rem">(${fmtDur(gMin)} ground)</span>
+          <td colspan="8" style="text-align:center">
+            <span class="dim" style="font-size:0.75rem">${fmtDur(gMin)} on ground</span>
             ${groundInvalid ? `<span class="validation-warn">⚠ ${groundWarnMsg}</span>` : ''}
-          </td><td colspan="3"></td>`;
+          </td><td></td>`;
         tbody.appendChild(gtr);
-
-        setupTimeInput(gtr.querySelector('[data-f="time"]'), v => { legs[i].nextDep = v; recalc(); });
-        gtr.querySelector('[data-f="date"]').addEventListener('change', function() {
-          legs[i].nextDepDate = this.value;
-          recalc();
-        });
       }
 
       // Advance clock
