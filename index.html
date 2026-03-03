@@ -35,19 +35,6 @@ button:hover { background: #2563eb; }
 .btn-icon:hover { background: #475569; color: #e2e8f0; }
 
 /* Timezone chips */
-.tz-bar { background: #1e293b; border-bottom: 1px solid #334155; padding: 0.3rem 1rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; min-height: 0; }
-.tz-bar:empty { display: none; }
-.tz-chip { display: inline-flex; align-items: center; background: #334155; padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.73rem; gap: 0.3rem; color: #94a3b8; }
-.tz-chip .remove { background: none; border: none; color: #64748b; cursor: pointer; padding: 0; font-size: 0.7rem; line-height: 1; }
-.tz-chip .remove:hover { color: #ef4444; }
-
-/* Timezone dropdown */
-.tz-dropdown { position: relative; display: inline-block; }
-.tz-menu { position: absolute; top: 100%; right: 0; background: #1e293b; border: 1px solid #334155; border-radius: 4px; z-index: 200; min-width: 220px; max-height: 280px; overflow-y: auto; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
-.tz-menu.open { display: block; }
-.tz-menu label { display: flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.6rem; font-size: 0.8rem; cursor: pointer; color: #e2e8f0; }
-.tz-menu label:hover { background: #334155; }
-.tz-menu input[type="checkbox"] { accent-color: #3b82f6; }
 
 .container { max-width: 1300px; margin: 0 auto; padding: 1rem; }
 
@@ -230,10 +217,6 @@ button:hover { background: #2563eb; }
   <input type="hidden" id="startTime">
   <input type="hidden" id="startDateStore">
   <input type="hidden" id="startTimeStore">
-  <div class="tz-dropdown">
-    <button class="btn-secondary btn-sm" id="tzBtn">TZ +</button>
-    <div class="tz-menu" id="tzMenu"></div>
-  </div>
   <button class="btn-secondary btn-sm" id="fetchWindsBtn" onclick="fetchWinds()">Winds</button>
   <button class="btn-sm" onclick="shareURL()">Share</button>
   <button class="btn-sm" onclick="saveTrip()">Save</button>
@@ -244,7 +227,6 @@ button:hover { background: #2563eb; }
   <button class="btn-secondary btn-sm" onclick="goHome()">Home</button>
 </div>
 
-<div class="tz-bar" id="tzBar"></div>
 
 <div class="container">
 
@@ -336,19 +318,6 @@ const PROFILES = {
   custom: { speed: 250, startup: 10, shutdown: 5,  alt: 350, show: 60 },
 };
 
-const TIMEZONE_LIST = [
-  ['America/New_York',    'US Eastern'],
-  ['America/Chicago',     'US Central'],
-  ['America/Denver',      'US Mountain'],
-  ['America/Los_Angeles', 'US Pacific'],
-  ['America/Anchorage',   'Alaska'],
-  ['Pacific/Honolulu',    'Hawaii'],
-  ['America/Phoenix',     'Arizona (no DST)'],
-  ['Europe/London',       'London (GMT/BST)'],
-  ['Europe/Paris',        'Paris (CET/CEST)'],
-  ['Asia/Dubai',          'Dubai (GST)'],
-  ['Asia/Tokyo',          'Tokyo (JST)'],
-];
 
 // Altitude (ft) -> pressure level (hPa) for Open-Meteo
 const ALT_PRESSURE = [
@@ -561,60 +530,15 @@ function setupAC(input, li, field) {
   function pick(apt) { input.value = apt.icao; list.classList.remove('open'); legs[li][field] = apt.icao; recalc(); }
 }
 
-// ── Timezone picker ──
-function buildTZMenu() {
-  const menu = $('tzMenu');
-  menu.innerHTML = TIMEZONE_LIST.map(([tz, label]) =>
-    `<label><input type="checkbox" value="${tz}" ${extraTZ.includes(tz)?'checked':''}> ${label}</label>`
-  ).join('');
-  menu.querySelectorAll('input').forEach(cb => {
-    cb.addEventListener('change', () => {
-      if (cb.checked && !extraTZ.includes(cb.value)) extraTZ.push(cb.value);
-      else extraTZ = extraTZ.filter(t => t !== cb.value);
-      renderTZChips();
-      recalc();
-    });
-  });
-}
-function renderTZChips() {
-  const bar = $('tzBar');
-  if (!extraTZ.length) { bar.innerHTML = ''; return; }
-  bar.innerHTML = '<span class="dim" style="font-size:0.72rem">Display:</span>' +
-    extraTZ.map(tz => {
-      const lbl = TIMEZONE_LIST.find(t=>t[0]===tz);
-      return `<span class="tz-chip">${lbl ? lbl[1] : tz.split('/').pop()} <button class="remove" data-tz="${tz}">✕</button></span>`;
-    }).join('');
-  bar.querySelectorAll('.remove').forEach(btn => {
-    btn.addEventListener('click', () => {
-      tzUserRemoved.add(btn.dataset.tz);
-      extraTZ = extraTZ.filter(t => t !== btn.dataset.tz);
-      renderTZChips(); buildTZMenu(); recalc();
-    });
-  });
-}
-$('tzBtn').addEventListener('click', e => {
-  e.stopPropagation();
-  $('tzMenu').classList.toggle('open');
-});
-document.addEventListener('click', () => $('tzMenu').classList.remove('open'));
-$('tzMenu').addEventListener('click', e => e.stopPropagation());
-let tzUserRemoved = new Set();   // TZs the user explicitly removed
+// ── Timezone auto-populate ──
 function autoPopulateTZ() {
-  const tripTZs = new Set();
+  const tzSet = new Set(['America/Los_Angeles']); // Always include Pacific
   for (const leg of legs) {
-    if (leg.dep && aptIdx[leg.dep]) tripTZs.add(aptIdx[leg.dep].tz);
-    if (leg.arr && aptIdx[leg.arr]) tripTZs.add(aptIdx[leg.arr].tz);
+    if (leg.dep && aptIdx[leg.dep]) tzSet.add(aptIdx[leg.dep].tz);
+    if (leg.arr && aptIdx[leg.arr]) tzSet.add(aptIdx[leg.arr].tz);
   }
-  let changed = false;
-  for (const tz of tripTZs) {
-    if (!extraTZ.includes(tz) && !tzUserRemoved.has(tz)) {
-      extraTZ.push(tz);
-      changed = true;
-    }
-  }
-  if (changed) { renderTZChips(); buildTZMenu(); }
+  extraTZ = [...tzSet];
 }
-buildTZMenu();
 
 // ── Leg management ──
 function addLeg(dep, arr, ground, rest, nextDep) {
@@ -1213,7 +1137,6 @@ function buildURL() {
     const depDates = legs.slice(0,-1).map(l => l.nextDepDate || '');
     if (depDates.some(d => d)) p.set('dd', depDates.join(','));
   }
-  if (extraTZ.length) p.set('tz', extraTZ.join(','));
   return location.origin + location.pathname + '?' + p.toString();
 }
 
@@ -1259,8 +1182,9 @@ function saveTrip() {
     // Default values
     $('saveNumber').value = maxNum + 1;
     $('saveName').value = defaultName;
-    // If current route matches an existing trip, pre-select it
-    const match = trips.find(t => t.route === currentRoute && currentRoute);
+    // Pre-select current trip by ID, or by matching route
+    const match = (currentTripId && trips.find(t => t.id === currentTripId)) ||
+                  trips.find(t => t.route === currentRoute && currentRoute);
     if (match) {
       sel.value = match.id;
       $('saveNumber').value = match.number || maxNum + 1;
@@ -1412,10 +1336,7 @@ function parseURL() {
     $('startDateStore').value = parts[0] || '';
     $('startTimeStore').value = parts[1] || '';
   }
-  if (p.has('tz')) {
-    extraTZ = p.get('tz').split(',').filter(Boolean);
-    renderTZChips(); buildTZMenu();
-  }
+  // tz param no longer used; timezones auto-populated
   if (p.has('l')) {
     const pairs = p.get('l').split(',');
     const grounds = p.has('g') ? p.get('g').split(',') : [];
@@ -1466,13 +1387,12 @@ function startNewTrip() {
   // Reset state
   legs = [];
   currentTripId = null;
-  extraTZ = []; tzUserRemoved.clear();
+  extraTZ = [];
   $('aircraft').value = 'G550';
   $('pSpeed').value = ''; $('pStartup').value = ''; $('pShutdown').value = ''; $('pAlt').value = ''; $('showTime').value = '';
   $('startTime').value = ''; $('startDateStore').value = ''; $('startTimeStore').value = '';
   $('crew').value = '2';
   updatePlaceholders();
-  renderTZChips(); buildTZMenu();
   showPlanner();
   recalc();
   lastSavedState = JSON.stringify(getTripState());
