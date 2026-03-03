@@ -63,8 +63,9 @@ function bearing(lat1, lon1, lat2, lon2) {
 
 function fmtDur(min) {
   if (min == null || min < 0) return '—';
-  const h = Math.floor(min/60), m = Math.round(min%60);
-  return h > 0 ? `${h}h ${m.toString().padStart(2,'0')}m` : `${m}m`;
+  const total = Math.round(min);
+  const h = Math.floor(total/60), m = total % 60;
+  return `${h}:${m.toString().padStart(2,'0')}`;
 }
 
 function fmtInTz(date, tz) {
