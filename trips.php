@@ -50,6 +50,22 @@ if ($method === 'GET' && isset($_GET['id'])) {
     exit;
 }
 
+// Delete a trip (POST with action=delete, or DELETE method) — must be before save handler
+if (($method === 'POST' && ($_GET['action'] ?? '') === 'delete') || $method === 'DELETE') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = $input['id'] ?? ($_GET['id'] ?? '');
+    $id = preg_replace('/[^a-zA-Z0-9_-]/', '', $id);
+    $file = "$dataDir/$id.json";
+    if (file_exists($file)) {
+        unlink($file);
+        echo json_encode(['ok' => true]);
+    } else {
+        http_response_code(404);
+        echo json_encode(['error' => 'Trip not found']);
+    }
+    exit;
+}
+
 // Save a trip
 if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -90,22 +106,6 @@ if ($method === 'POST') {
     ];
     file_put_contents("$dataDir/$id.json", json_encode($data, JSON_PRETTY_PRINT));
     echo json_encode(['id' => $id, 'number' => $number, 'name' => $data['name']]);
-    exit;
-}
-
-// Delete a trip (POST with action=delete, or DELETE method)
-if (($method === 'POST' && ($_GET['action'] ?? '') === 'delete') || $method === 'DELETE') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $id = $input['id'] ?? ($_GET['id'] ?? '');
-    $id = preg_replace('/[^a-zA-Z0-9_-]/', '', $id);
-    $file = "$dataDir/$id.json";
-    if (file_exists($file)) {
-        unlink($file);
-        echo json_encode(['ok' => true]);
-    } else {
-        http_response_code(404);
-        echo json_encode(['error' => 'Trip not found']);
-    }
     exit;
 }
 
