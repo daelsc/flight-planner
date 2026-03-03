@@ -230,6 +230,7 @@ button:hover { background: #2563eb; }
   <input type="hidden" id="startTimeStore">
   <button class="btn-sm" onclick="sharePaxLink()">Share with Passengers</button>
   <button class="btn-sm" onclick="saveTrip()">Save</button>
+  <button class="btn-sm crew-only" onclick="pushToForeFlight()">Push to ForeFlight</button>
   <div class="trips-dropdown">
     <button class="btn-secondary btn-sm" onclick="toggleTripsMenu()">Trips ▾</button>
     <div class="trips-menu" id="tripsMenu"></div>
@@ -645,6 +646,7 @@ async function fetchWinds() {
 
 // Track departure times for wind matching (populated during recalc)
 let legDepartures = [];
+let lastLegCalc = [];
 
 // ── Main recalc ──
 function recalc() {
@@ -1007,6 +1009,7 @@ function recalc() {
   if (legs.some(l => aptIdx[l.dep] && aptIdx[l.arr] && !l.wind)) fetchWinds();
 
   // Crew duty tracker
+  lastLegCalc = legCalc;
   updateCrew(legCalc, crewCount, getShowMin());
 }
 
@@ -1313,6 +1316,41 @@ function sharePaxLink() {
     fallbackCopy(url);
   }
   window.open(url, '_blank');
+}
+
+function pushToForeFlight() {
+  if (!legs.length || !lastLegCalc.length) { showToast('No legs to push'); return; }
+  const flights = [];
+  for (let i = 0; i < legs.length; i++) {
+    const leg = legs[i], lc = lastLegCalc[i];
+    if (!leg.dep || !leg.arr || !lc?.departTime) continue;
+    flights.push({
+      departure: leg.dep,
+      destination: leg.arr,
+      departureTime: lc.departTime.toISOString(),
+      arrivalTime: lc.arriveTime ? lc.arriveTime.toISOString() : undefined,
+      externalId: (currentTripId || 'trip') + '-leg-' + i,
+      tripId: currentTripId || undefined,
+    });
+  }
+  if (!flights.length) { showToast('No valid legs'); return; }
+  if (!confirm(`Push ${flights.length} flight${flights.length > 1 ? 's' : ''} to ForeFlight Dispatch?`)) return;
+  showToast('Pushing to ForeFlight...');
+  fetch('foreflight.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({flights}) })
+    .then(r => r.json().then(d => ({status: r.status, data: d})))
+    .then(({status, data}) => {
+      if (status === 200 && !data.hasErrors) {
+        const created = (data.flightResults||[]).filter(r => r.action === 'Created').length;
+        const updated = (data.flightResults||[]).filter(r => r.action === 'Updated').length;
+        showToast(`ForeFlight: ${created} created, ${updated} updated`);
+      } else if (data.hasErrors) {
+        const errs = (data.flightResults||[]).filter(r => r.errors?.length).map(r => r.errors[0].errorMessage);
+        showToast('ForeFlight error: ' + (errs[0] || 'Unknown'));
+      } else {
+        showToast('ForeFlight error: ' + (data.error || status));
+      }
+    })
+    .catch(() => showToast('ForeFlight push failed'));
 }
 
 function parseURL() {
