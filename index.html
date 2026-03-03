@@ -1086,7 +1086,8 @@ function toggleTripsMenu() {
       for (const t of trips) {
         const item = document.createElement('div');
         item.className = 'trip-item';
-        item.innerHTML = `<div><div class="trip-name">${esc(t.name)}</div><div class="trip-route">${esc(t.route)}</div></div>
+        const numLabel = t.number ? `#${t.number} ` : '';
+        item.innerHTML = `<div><div class="trip-name">${numLabel}${esc(t.name)}</div><div class="trip-route">${esc(t.route)}</div></div>
           <span class="trip-delete" data-id="${esc(t.id)}" title="Delete">✕</span>`;
         item.querySelector('.trip-name').parentElement.addEventListener('click', () => loadTrip(t.id));
         item.querySelector('.trip-delete').addEventListener('click', e => { e.stopPropagation(); deleteTrip(t.id); });

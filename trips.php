@@ -7,6 +7,15 @@ if (!is_dir($dataDir)) {
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
+$counterFile = "$dataDir/.counter";
+
+function nextTripNumber() {
+    global $counterFile;
+    $n = file_exists($counterFile) ? (int)file_get_contents($counterFile) : 0;
+    $n++;
+    file_put_contents($counterFile, $n);
+    return $n;
+}
 
 // List all saved trips
 if ($method === 'GET' && !isset($_GET['id'])) {
@@ -16,13 +25,14 @@ if ($method === 'GET' && !isset($_GET['id'])) {
         if ($data) {
             $trips[] = [
                 'id' => basename($f, '.json'),
+                'number' => $data['number'] ?? null,
                 'name' => $data['name'] ?? 'Untitled',
                 'route' => $data['route'] ?? '',
                 'saved' => $data['saved'] ?? '',
             ];
         }
     }
-    usort($trips, fn($a, $b) => strcmp($b['saved'], $a['saved']));
+    usort($trips, fn($a, $b) => ($b['number'] ?? 0) - ($a['number'] ?? 0));
     echo json_encode($trips);
     exit;
 }
@@ -61,15 +71,25 @@ if ($method === 'POST') {
         }
         $route = implode(' → ', $airports);
     }
+    // Preserve trip number on update, assign new one for new trips
+    $number = null;
+    $existingFile = "$dataDir/$id.json";
+    if (file_exists($existingFile)) {
+        $existing = json_decode(file_get_contents($existingFile), true);
+        $number = $existing['number'] ?? null;
+    }
+    if (!$number) $number = nextTripNumber();
+
     $data = [
         'id' => $id,
+        'number' => $number,
         'name' => substr($input['name'], 0, 100),
         'route' => $route,
         'state' => $input['state'],
         'saved' => date('c'),
     ];
     file_put_contents("$dataDir/$id.json", json_encode($data, JSON_PRETTY_PRINT));
-    echo json_encode(['id' => $id, 'name' => $data['name']]);
+    echo json_encode(['id' => $id, 'number' => $number, 'name' => $data['name']]);
     exit;
 }
 
