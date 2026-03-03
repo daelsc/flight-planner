@@ -217,8 +217,10 @@ button:hover { background: #2563eb; }
     </select>
   </div>
   <div class="sg crew-only">
-    <label>Spd</label><input type="number" id="pSpeed" placeholder="488" min="50" max="999" title="Cruise speed (kts)">
-    <label>FL</label><input type="number" id="pAlt" placeholder="450" min="10" max="600" title="Cruise altitude (flight level)" style="width:4rem">
+    <label>Climb</label><input type="number" id="pClimb" placeholder="300" min="50" max="999" title="Climb speed (kts)" style="width:3.5rem">
+    <label>Cruise</label><input type="number" id="pSpeed" placeholder="470" min="50" max="999" title="Cruise speed (kts)" style="width:3.5rem">
+    <label>Desc</label><input type="number" id="pDescent" placeholder="300" min="50" max="999" title="Descent speed (kts)" style="width:3.5rem">
+    <label>FL</label><input type="number" id="pAlt" placeholder="400" min="10" max="600" title="Cruise altitude (flight level)" style="width:4rem">
   </div>
   <div class="sg crew-only">
     <label>Start</label><input type="number" id="pStartup" placeholder="15" min="0" max="99" title="Engine startup (min)" style="width:3.5rem">
@@ -390,10 +392,13 @@ function getProfile() {
   const t = $('aircraft').value;
   const b = PROFILES[t] || PROFILES.custom;
   return {
-    speed:    num($('pSpeed').value) || b.speed,
-    startup:  numNull($('pStartup').value) ?? b.startup,
-    shutdown: numNull($('pShutdown').value) ?? b.shutdown,
-    alt:      num($('pAlt').value) || b.alt,
+    speed:        num($('pSpeed').value) || b.speed,
+    climbSpeed:   num($('pClimb').value) || b.climbSpeed || null,
+    descentSpeed: num($('pDescent').value) || b.descentSpeed || null,
+    phaseMin:     b.phaseMin || null,
+    startup:      numNull($('pStartup').value) ?? b.startup,
+    shutdown:     numNull($('pShutdown').value) ?? b.shutdown,
+    alt:          num($('pAlt').value) || b.alt,
   };
 }
 function getCrewCount() { return num($('crew').value) || 2; }
@@ -404,7 +409,9 @@ function getShowMin() {
 
 function updatePlaceholders() {
   const b = PROFILES[$('aircraft').value] || PROFILES.custom;
+  $('pClimb').placeholder = b.climbSpeed || '—';
   $('pSpeed').placeholder = b.speed;
+  $('pDescent').placeholder = b.descentSpeed || '—';
   $('pStartup').placeholder = b.startup;
   $('pShutdown').placeholder = b.shutdown;
   $('pAlt').placeholder = b.alt;
@@ -1165,10 +1172,10 @@ function updateCrew(legCalc, crewCount, showMin) {
 
 // ── Settings handlers ──
 $('aircraft').addEventListener('change', () => {
-  $('pSpeed').value = ''; $('pStartup').value = ''; $('pShutdown').value = ''; $('pAlt').value = ''; $('showTime').value = '';
+  $('pClimb').value = ''; $('pSpeed').value = ''; $('pDescent').value = ''; $('pStartup').value = ''; $('pShutdown').value = ''; $('pAlt').value = ''; $('showTime').value = '';
   updatePlaceholders(); recalc();
 });
-for (const id of ['pSpeed','pStartup','pShutdown','pAlt','crew','startTime','showTime'])
+for (const id of ['pClimb','pSpeed','pDescent','pStartup','pShutdown','pAlt','crew','startTime','showTime'])
   $(id).addEventListener('change', recalc);
 updatePlaceholders();
 
@@ -1478,7 +1485,7 @@ function startNewTrip() {
   currentTripId = null;
   extraTZ = [];
   $('aircraft').value = 'G550';
-  $('pSpeed').value = ''; $('pStartup').value = ''; $('pShutdown').value = ''; $('pAlt').value = ''; $('showTime').value = '';
+  $('pClimb').value = ''; $('pSpeed').value = ''; $('pDescent').value = ''; $('pStartup').value = ''; $('pShutdown').value = ''; $('pAlt').value = ''; $('showTime').value = '';
   $('startTime').value = ''; $('startDateStore').value = ''; $('startTimeStore').value = '';
   $('crew').value = '2';
   updatePlaceholders();
