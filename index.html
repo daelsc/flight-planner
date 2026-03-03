@@ -632,28 +632,51 @@ function recalc() {
   let dutyStartTime = null; // set at show time before first leg or after rest
   let needsShowRow = true;  // insert show row before next leg
 
-  // Start date + time row at top of leg table
+  // Crew show + departure time rows at top of leg table
   if (legs.length) {
     const startDate = startVal ? startVal.split('T')[0] : '';
     const startTime = startVal ? startVal.split('T')[1] || '' : '';
     const depLabel = legs[0].dep ? esc(legs[0].dep) : 'origin';
-    const str = document.createElement('tr');
-    str.className = 'ground-row';
-    str.innerHTML = `<td></td><td colspan="6" style="padding-left:1.5rem">
-      🕐 <strong>${depLabel}</strong> —
+
+    // Compute show time for display
+    let showTimeDisplay = '';
+    if (currentTime && showMin > 0 && firstTz) {
+      const showTime = new Date(currentTime.getTime() - showMin * 60000);
+      showTimeDisplay = fmtTimeCell(showTime, firstTz);
+    }
+
+    // Crew show row
+    const showRow = document.createElement('tr');
+    showRow.className = 'show-row';
+    showRow.innerHTML = `<td></td><td colspan="6">👤 Crew show at <strong>${depLabel}</strong> — ${showMin} min before departure</td>
+      <td>${showTimeDisplay}</td><td></td><td></td>`;
+    tbody.appendChild(showRow);
+
+    // Departure time row
+    const depRow = document.createElement('tr');
+    depRow.className = 'ground-row';
+    depRow.innerHTML = `<td></td><td colspan="6" style="padding-left:1.5rem">
+      ⏱ <strong>${depLabel}</strong> —
       <input class="date-input" type="date" id="startDateInline" value="${esc(startDate)}" title="Trip date">
       depart <input class="dep-override" type="time" id="startTimeInline" value="${esc(startTime)}" title="Departure time (local)">
       ${firstDep ? `<span class="dim">${fmtTzShort(firstTz)}</span>` : ''}
     </td><td colspan="3"></td>`;
-    tbody.appendChild(str);
+    tbody.appendChild(depRow);
+
     function syncStartTime() {
-      const d = str.querySelector('#startDateInline').value;
-      const t = str.querySelector('#startTimeInline').value;
+      const d = depRow.querySelector('#startDateInline').value;
+      const t = depRow.querySelector('#startTimeInline').value;
       $('startTime').value = (d && t) ? d + 'T' + t : '';
       recalc();
     }
-    str.querySelector('#startDateInline').addEventListener('change', syncStartTime);
-    str.querySelector('#startTimeInline').addEventListener('change', syncStartTime);
+    depRow.querySelector('#startDateInline').addEventListener('change', syncStartTime);
+    depRow.querySelector('#startTimeInline').addEventListener('change', syncStartTime);
+
+    // Mark first leg's show row as handled
+    needsShowRow = false;
+    if (currentTime && showMin > 0) {
+      dutyStartTime = new Date(currentTime.getTime() - showMin * 60000);
+    }
   }
 
   let restDepInfo = null;
