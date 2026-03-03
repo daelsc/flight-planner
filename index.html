@@ -86,9 +86,6 @@ button:hover { background: #2563eb; }
 .dep-override { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 0.2rem 0.3rem; border-radius: 4px; font-size: 0.78rem; width: 6.5rem; font-family: 'SF Mono','Fira Code',monospace; }
 .date-input { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 0.2rem 0.3rem; border-radius: 4px; font-size: 0.78rem; width: 9rem; }
 .dep-override:focus { outline: none; border-color: #3b82f6; }
-.rest-toggle { font-size: 0.73rem; padding: 0.15rem 0.5rem; border-radius: 3px; cursor: pointer; border: 1px solid #334155; background: #1e293b; color: #94a3b8; }
-.rest-toggle:hover { border-color: #3b82f6; color: #e2e8f0; }
-.rest-toggle.active { background: #1e3a5f; border-color: #3b82f6; color: #60a5fa; }
 .rest-warn { color: #f59e0b; font-size: 0.73rem; }
 
 /* Rest block */
@@ -626,14 +623,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (ri) ri.addEventListener('keydown', e => { if (e.key === 'Enter') loadRoute(); });
 });
 
-function toggleRest(i) {
-  legs[i].rest = !legs[i].rest;
-  // If enabling rest and ground time is less than 600 min, default to 600
-  if (legs[i].rest && (legs[i].groundMin == null || legs[i].groundMin < 600)) {
-    legs[i].groundMin = 600;
-  }
-  recalc();
-}
 
 // ── Winds aloft ──
 function altToPressure(ft) {
@@ -964,9 +953,7 @@ function recalc() {
         rtr.className = 'rest-block';
         rtr.innerHTML = `<td></td>
           <td colspan="8" style="padding-left:1.5rem">
-            <div>🛏 <strong>Crew Rest — ${esc(leg.arr||'?')}</strong>${restWarn}
-              <button class="rest-toggle active" onclick="toggleRest(${i})" style="margin-left:0.5rem">✕ Remove</button>
-            </div>
+            <div>🛏 <strong>Crew Rest — ${esc(leg.arr||'?')}</strong>${restWarn}</div>
             <div style="margin-top:0.35rem">
               <span class="rest-duration">${restMin != null ? fmtDur(restMin) : fmtDur(gMin)} rest</span>
               ${restStartFmt ? `<span class="rest-times" style="margin-left:0.75rem">Off duty ${restStartFmt.time} ${restStartFmt.abbr}</span>` : ''}
@@ -989,7 +976,6 @@ function recalc() {
             <span class="dim">${nextDepTz ? fmtTzShort(nextDepTz) : ''}</span>
             <span class="dim" style="margin-left:0.3rem">(${fmtDur(gMin)} ground)</span>
             ${groundInvalid ? `<span class="validation-warn">⚠ ${groundWarnMsg}</span>` : ''}
-            ${isCrew ? `<button class="rest-toggle" onclick="toggleRest(${i})">+ Rest</button>` : ''}
           </td><td colspan="3"></td>`;
         tbody.appendChild(gtr);
 
