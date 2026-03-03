@@ -128,7 +128,18 @@ button:hover { background: #2563eb; }
 .trips-menu .trip-delete:hover { color: #ef4444; background: #1e293b; }
 .trips-menu .trip-empty { padding: 1rem; text-align: center; color: #64748b; font-size: 0.82rem; }
 
-/* Save dialog */
+/* ForeFlight dialog */
+.ff-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 400; }
+.ff-dialog { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 1.5rem; width: 340px; }
+.ff-dialog h3 { font-size: 1rem; margin-bottom: 1rem; color: #e2e8f0; }
+.ff-dialog label { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; color: #cbd5e1; font-size: 0.85rem; cursor: pointer; }
+.ff-dialog label input { accent-color: #3b82f6; }
+.ff-dialog .ff-buttons { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; }
+.ff-dialog .ff-buttons button { padding: 0.4rem 1rem; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; }
+.ff-dialog .ff-push { background: #3b82f6; color: white; }
+.ff-dialog .ff-push:hover { background: #2563eb; }
+.ff-dialog .ff-cancel { background: #334155; color: #cbd5e1; }
+.ff-dialog .ff-cancel:hover { background: #475569; }
 
 /* Toast */
 .toast { position: fixed; top: 1rem; right: 1rem; background: #22c55e; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.82rem; opacity: 0; transition: opacity 0.3s; z-index: 300; pointer-events: none; }
@@ -1320,37 +1331,60 @@ function sharePaxLink() {
 
 function pushToForeFlight() {
   if (!legs.length || !lastLegCalc.length) { showToast('No legs to push'); return; }
-  const flights = [];
+  // Build valid legs list
+  const validLegs = [];
   for (let i = 0; i < legs.length; i++) {
     const leg = legs[i], lc = lastLegCalc[i];
     if (!leg.dep || !leg.arr || !lc?.departTime) continue;
-    flights.push({
-      departure: leg.dep,
-      destination: leg.arr,
-      departureTime: lc.departTime.toISOString(),
-      arrivalTime: lc.arriveTime ? lc.arriveTime.toISOString() : undefined,
-      externalId: (currentTripId || 'trip') + '-leg-' + i,
-      tripId: currentTripId || undefined,
-    });
+    validLegs.push({ idx: i, leg, lc });
   }
-  if (!flights.length) { showToast('No valid legs'); return; }
-  if (!confirm(`Push ${flights.length} flight${flights.length > 1 ? 's' : ''} to ForeFlight Dispatch?`)) return;
-  showToast('Pushing to ForeFlight...');
-  fetch('foreflight.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({flights}) })
-    .then(r => r.json().then(d => ({status: r.status, data: d})))
-    .then(({status, data}) => {
-      if (status === 200 && !data.hasErrors) {
-        const created = (data.flightResults||[]).filter(r => r.action === 'Created').length;
-        const updated = (data.flightResults||[]).filter(r => r.action === 'Updated').length;
-        showToast(`ForeFlight: ${created} created, ${updated} updated`);
-      } else if (data.hasErrors) {
-        const errs = (data.flightResults||[]).filter(r => r.errors?.length).map(r => r.errors[0].errorMessage);
-        showToast('ForeFlight error: ' + (errs[0] || 'Unknown'));
-      } else {
-        showToast('ForeFlight error: ' + (data.error || status));
-      }
-    })
-    .catch(() => showToast('ForeFlight push failed'));
+  if (!validLegs.length) { showToast('No valid legs'); return; }
+  // Build dialog
+  const overlay = document.createElement('div');
+  overlay.className = 'ff-overlay';
+  let checkboxes = '';
+  for (const v of validLegs) {
+    const depTz = airportsByIcao[v.leg.dep]?.tz || 'UTC';
+    const depLocal = v.lc.departTime.toLocaleString('en-US', { timeZone: depTz, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    checkboxes += `<label><input type="checkbox" checked value="${v.idx}"> ${v.leg.dep} → ${v.leg.arr} &nbsp;<span style="color:#64748b;font-size:0.78rem">${depLocal}</span></label>`;
+  }
+  overlay.innerHTML = `<div class="ff-dialog"><h3>Push to ForeFlight</h3>${checkboxes}<div class="ff-buttons"><button class="ff-cancel" onclick="this.closest('.ff-overlay').remove()">Cancel</button><button class="ff-push" id="ffPushBtn">Push Selected</button></div></div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('ffPushBtn').addEventListener('click', () => {
+    const checked = overlay.querySelectorAll('input[type=checkbox]:checked');
+    if (!checked.length) { showToast('No legs selected'); return; }
+    const flights = [];
+    checked.forEach(cb => {
+      const i = parseInt(cb.value);
+      const leg = legs[i], lc = lastLegCalc[i];
+      flights.push({
+        departure: leg.dep,
+        destination: leg.arr,
+        departureTime: lc.departTime.toISOString(),
+        arrivalTime: lc.arriveTime ? lc.arriveTime.toISOString() : undefined,
+        externalId: (currentTripId || 'trip') + '-leg-' + i,
+        tripId: currentTripId || undefined,
+      });
+    });
+    overlay.remove();
+    showToast('Pushing to ForeFlight...');
+    fetch('foreflight.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({flights}) })
+      .then(r => r.json().then(d => ({status: r.status, data: d})))
+      .then(({status, data}) => {
+        if (status === 200 && !data.hasErrors) {
+          const created = (data.flightResults||[]).filter(r => r.action === 'Created').length;
+          const updated = (data.flightResults||[]).filter(r => r.action === 'Updated').length;
+          showToast(`ForeFlight: ${created} created, ${updated} updated`);
+        } else if (data.hasErrors) {
+          const errs = (data.flightResults||[]).filter(r => r.errors?.length).map(r => r.errors[0].errorMessage);
+          showToast('ForeFlight error: ' + (errs[0] || 'Unknown'));
+        } else {
+          showToast('ForeFlight error: ' + (data.error || status));
+        }
+      })
+      .catch(() => showToast('ForeFlight push failed'));
+  });
 }
 
 function parseURL() {
