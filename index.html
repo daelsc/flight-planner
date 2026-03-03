@@ -156,10 +156,7 @@ button:hover { background: #2563eb; }
     <input type="number" id="showTime" value="60" min="0" max="300" title="Crew show/report time before departure (min)" style="width:3.5rem">
     <span class="dim">min</span>
   </div>
-  <div class="sg">
-    <label>Depart</label>
-    <input type="datetime-local" id="startTime">
-  </div>
+  <input type="hidden" id="startTime">
   <div class="tz-dropdown">
     <button class="btn-secondary btn-sm" id="tzBtn">TZ +</button>
     <div class="tz-menu" id="tzMenu"></div>
@@ -607,6 +604,24 @@ function recalc() {
   let dutyStartTime = null; // set at show time before first leg or after rest
   let needsShowRow = true;  // insert show row before next leg
 
+  // Start time row at top of leg table
+  if (legs.length) {
+    const str = document.createElement('tr');
+    str.className = 'ground-row';
+    const depLabel = legs[0].dep ? esc(legs[0].dep) : 'origin';
+    str.innerHTML = `<td></td><td colspan="6" style="padding-left:1.5rem">
+      🕐 First departure from <strong>${depLabel}</strong>:
+      <input class="dep-override" type="datetime-local" id="startTimeInline" value="${esc(startVal||'')}"
+        title="Departure time (local time at first airport)">
+      ${firstDep ? `<span class="dim">${fmtTzShort(firstTz)}</span>` : ''}
+    </td><td colspan="3"></td>`;
+    tbody.appendChild(str);
+    str.querySelector('#startTimeInline').addEventListener('change', function() {
+      $('startTime').value = this.value;
+      recalc();
+    });
+  }
+
   for (let i = 0; i < legs.length; i++) {
     const leg = legs[i];
     const depApt = aptIdx[leg.dep], arrApt = aptIdx[leg.arr];
@@ -729,30 +744,39 @@ function recalc() {
         restLabel = `⏱ Ground at <strong>${esc(leg.arr||'?')}</strong>:`;
       }
 
+      // Only show departure time picker on rest stops
+      const showDepPicker = leg.rest;
+      let depPickerHtml = '';
+      if (showDepPicker) {
+        depPickerHtml = `<span class="dim" style="margin-left:0.5rem">Depart</span>
+          <input class="dep-override" type="datetime-local" value="${esc(leg.nextDep||'')}" data-l="${i}">
+          ${leg.nextDep ? `<button class="btn-icon" onclick="legs[${i}].nextDep='';recalc()" title="Clear" style="display:inline-flex;vertical-align:middle">✕</button>` : ''}`;
+      }
+
       gtr.innerHTML = `<td></td>
         <td colspan="6" style="padding-left:1.5rem">
           ${restLabel}
           <input class="ground-input ${computed?'computed':''}" type="number" min="0" max="9999" value="${gMin}" data-l="${i}" ${computed?'readonly':''}> min
           <span class="dim">(${Math.floor(gMin/60)}h ${(gMin%60).toString().padStart(2,'0')}m)</span>
           <button class="rest-toggle ${leg.rest?'active':''}" onclick="toggleRest(${i})">${leg.rest ? '🛏 Rest' : '+ Rest'}</button>
-          <span class="dim" style="margin-left:0.5rem">Depart</span>
-          <input class="dep-override" type="datetime-local" value="${esc(leg.nextDep||'')}" data-l="${i}">
-          ${leg.nextDep ? `<button class="btn-icon" onclick="legs[${i}].nextDep='';recalc()" title="Clear departure override" style="display:inline-flex;vertical-align:middle">✕</button>` : ''}
+          ${depPickerHtml}
         </td><td colspan="3"></td>`;
       tbody.appendChild(gtr);
 
       if (!computed) {
         gtr.querySelector('.ground-input').addEventListener('change', function() {
           legs[i].groundMin = parseInt(this.value,10) || 0;
-          legs[i].nextDep = ''; // clear override when manually setting ground time
+          legs[i].nextDep = '';
           recalc();
         });
       }
 
-      gtr.querySelector('.dep-override').addEventListener('change', function() {
-        legs[i].nextDep = this.value;
-        recalc();
-      });
+      if (showDepPicker) {
+        gtr.querySelector('.dep-override').addEventListener('change', function() {
+          legs[i].nextDep = this.value;
+          recalc();
+        });
+      }
 
       // Advance clock
       if (depOverrideTime) {
