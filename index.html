@@ -217,7 +217,6 @@ button:hover { background: #2563eb; }
   <input type="hidden" id="startTime">
   <input type="hidden" id="startDateStore">
   <input type="hidden" id="startTimeStore">
-  <button class="btn-secondary btn-sm" id="fetchWindsBtn" onclick="fetchWinds()">Winds</button>
   <button class="btn-sm" onclick="shareURL()">Share</button>
   <button class="btn-sm" onclick="saveTrip()">Save</button>
   <div class="trips-dropdown">
@@ -584,11 +583,10 @@ function altToPressure(ft) {
 
 async function fetchWinds() {
   if (windsLoading) return;
+  if (!legs.some(l => aptIdx[l.dep] && aptIdx[l.arr])) return;
   const profile = getProfile();
   const altFt = profile.alt * 100;
   const hPa = altToPressure(altFt);
-  const btn = $('fetchWindsBtn');
-  btn.innerHTML = '<span class="spinner"></span>';
   windsLoading = true;
 
   try {
@@ -603,9 +601,7 @@ async function fetchWinds() {
       const speeds = data.hourly[`wind_speed_${hPa}hPa`];
       const dirs = data.hourly[`wind_direction_${hPa}hPa`];
       const times = data.hourly.time;
-      // Pick the hour closest to departure time or current time
       let targetHour = new Date().toISOString().slice(0,13) + ':00';
-      // If we have computed departure time, use that
       const depTime = legDepartures[i];
       if (depTime) targetHour = depTime.toISOString().slice(0,13) + ':00';
       let bestIdx = 0;
@@ -623,7 +619,6 @@ async function fetchWinds() {
     console.error('Wind fetch error:', e);
   }
   windsLoading = false;
-  btn.textContent = 'Winds';
   recalc();
 }
 
@@ -966,6 +961,9 @@ function recalc() {
 
   // Auto-populate extra timezones from trip airports
   autoPopulateTZ();
+
+  // Auto-fetch winds if any leg is missing wind data
+  if (legs.some(l => aptIdx[l.dep] && aptIdx[l.arr] && !l.wind)) fetchWinds();
 
   // Crew duty tracker
   updateCrew(legCalc, crewCount, getShowMin());
