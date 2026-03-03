@@ -358,6 +358,7 @@ function numOr(v, d) { const n = parseInt(v,10); return isNaN(n) ? d : n; }
 function numNull(v) { const n = parseInt(v,10); return isNaN(n) ? null : n; }
 function $(id) { return document.getElementById(id); }
 function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtTripDate(d) { if (!d) return ''; const [y,m,dd] = d.split('-'); return `${+m}/${+dd}`; }
 
 function getProfile() {
   const t = $('aircraft').value;
@@ -792,14 +793,18 @@ function recalc() {
         dtr.innerHTML = `<td></td>
           <td colspan="6" style="padding-left:1.5rem">
             ⏱ <strong>${esc(leg.dep||'?')}</strong>
-            — depart <input class="dep-override" type="time" value="${esc(rd.depTimeVal)}" data-l="${rd.legIndex}">
+            — <input class="date-input" type="date" value="${esc(rd.depDateVal)}" data-l="${rd.legIndex}" data-f="date">
+            depart <input class="dep-override" type="time" value="${esc(rd.depTimeVal)}" data-l="${rd.legIndex}" data-f="time">
             <span class="dim">${rd.nextDepTz ? fmtTzShort(rd.nextDepTz) : ''}</span>
-            ${rd.depDateLabel ? `<span class="date-lbl" style="margin-left:0.3rem">${rd.depDateLabel}</span>` : ''}
             <span class="dim" style="margin-left:0.3rem">(${fmtDur(rd.gMin)} ground)</span>
           </td><td colspan="3"></td>`;
         tbody.appendChild(dtr);
-        dtr.querySelector('.dep-override').addEventListener('change', function() {
+        dtr.querySelector('[data-f="time"]').addEventListener('change', function() {
           legs[rd.legIndex].nextDep = this.value;
+          recalc();
+        });
+        dtr.querySelector('[data-f="date"]').addEventListener('change', function() {
+          legs[rd.legIndex].nextDepDate = this.value;
           recalc();
         });
         restDepInfo = null;
@@ -874,8 +879,12 @@ function recalc() {
       let depOverrideTime = null, gMin;
 
       if (leg.nextDep && arriveTime) {
-        // User set a departure time (HH:MM) — combine with arrival date in nextDepTz
-        depOverrideTime = timeToDate(leg.nextDep, arriveTime, nextDepTz);
+        // User set a departure time — combine with date (explicit or from arrival)
+        if (leg.nextDepDate) {
+          depOverrideTime = dateInTz(`${leg.nextDepDate}T${leg.nextDep}`, nextDepTz);
+        } else {
+          depOverrideTime = timeToDate(leg.nextDep, arriveTime, nextDepTz);
+        }
         gMin = Math.max(0, Math.round((depOverrideTime - arriveTime) / 60000));
       } else if (arriveTime) {
         gMin = leg.groundMin ?? defaultMin;
@@ -891,10 +900,10 @@ function recalc() {
         const pad = n => n.toString().padStart(2,'0');
         depTimeVal = `${pad(dp.h)}:${pad(dp.m)}`;
       }
-      // Date label for display
-      let depDateLabel = '';
-      if (depOverrideTime && nextDepTz) {
-        depDateLabel = depOverrideTime.toLocaleString('en-US', { timeZone: nextDepTz, month:'short', day:'numeric' });
+      // Date value for input (YYYY-MM-DD in local tz)
+      let depDateVal = leg.nextDepDate || '';
+      if (!depDateVal && depOverrideTime && nextDepTz) {
+        depDateVal = new Intl.DateTimeFormat('en-CA', { timeZone: nextDepTz, year:'numeric', month:'2-digit', day:'2-digit' }).format(depOverrideTime);
       }
 
       if (leg.rest) {
@@ -923,7 +932,7 @@ function recalc() {
         tbody.appendChild(rtr);
 
         // Store dep time info to render next to the departing leg
-        restDepInfo = { depTimeVal, nextDepTz, depDateLabel, legIndex: i, gMin };
+        restDepInfo = { depTimeVal, depDateVal, nextDepTz, legIndex: i, gMin };
       } else {
         // ── Normal ground row ──
         const gtr = document.createElement('tr');
@@ -931,16 +940,20 @@ function recalc() {
         gtr.innerHTML = `<td></td>
           <td colspan="6" style="padding-left:1.5rem">
             ⏱ <strong>${esc(leg.arr||'?')}</strong>
-            — depart <input class="dep-override" type="time" value="${esc(depTimeVal)}" data-l="${i}">
+            — <input class="date-input" type="date" value="${esc(depDateVal)}" data-l="${i}" data-f="date">
+            depart <input class="dep-override" type="time" value="${esc(depTimeVal)}" data-l="${i}" data-f="time">
             <span class="dim">${nextDepTz ? fmtTzShort(nextDepTz) : ''}</span>
-            ${depDateLabel ? `<span class="date-lbl" style="margin-left:0.3rem">${depDateLabel}</span>` : ''}
             <span class="dim" style="margin-left:0.3rem">(${fmtDur(gMin)} ground)</span>
             <button class="rest-toggle" onclick="toggleRest(${i})">+ Rest</button>
           </td><td colspan="3"></td>`;
         tbody.appendChild(gtr);
 
-        gtr.querySelector('.dep-override').addEventListener('change', function() {
+        gtr.querySelector('[data-f="time"]').addEventListener('change', function() {
           legs[i].nextDep = this.value;
+          recalc();
+        });
+        gtr.querySelector('[data-f="date"]').addEventListener('change', function() {
+          legs[i].nextDepDate = this.value;
           recalc();
         });
       }
@@ -1102,6 +1115,8 @@ function buildURL() {
     if (rests.some(r => r)) p.set('r', rests.join(','));
     const deps = legs.slice(0,-1).map(l => l.nextDep || '');
     if (deps.some(d => d)) p.set('d', deps.join(','));
+    const depDates = legs.slice(0,-1).map(l => l.nextDepDate || '');
+    if (depDates.some(d => d)) p.set('dd', depDates.join(','));
   }
   if (extraTZ.length) p.set('tz', extraTZ.join(','));
   return location.origin + location.pathname + '?' + p.toString();
@@ -1203,7 +1218,8 @@ function toggleTripsMenu() {
         const item = document.createElement('div');
         item.className = 'trip-item';
         const numLabel = t.number ? `#${t.number} ` : '';
-        item.innerHTML = `<div><div class="trip-name">${numLabel}${esc(t.name)}</div><div class="trip-route">${esc(t.route)}</div></div>
+        const dateLabel = fmtTripDate(t.date);
+        item.innerHTML = `<div><div class="trip-name">${numLabel}${dateLabel ? `<span class="dim" style="margin-right:0.3rem">${dateLabel}</span>` : ''}${esc(t.name)}</div><div class="trip-route">${esc(t.route)}</div></div>
           <span class="trip-delete" data-id="${esc(t.id)}" title="Delete">✕</span>`;
         item.querySelector('.trip-name').parentElement.addEventListener('click', () => loadTrip(t.id));
         item.querySelector('.trip-delete').addEventListener('click', e => { e.stopPropagation(); deleteTrip(t.id); });
@@ -1309,6 +1325,7 @@ function parseURL() {
     const grounds = p.has('g') ? p.get('g').split(',') : [];
     const rests = p.has('r') ? p.get('r').split(',') : [];
     const deps = p.has('d') ? p.get('d').split(',') : [];
+    const depDates = p.has('dd') ? p.get('dd').split(',') : [];
     legs = pairs.map((pair, i) => {
       const [dep, arr] = pair.split('-');
       return {
@@ -1317,6 +1334,7 @@ function parseURL() {
         rest: rests[i] === '1',
         wind: null,
         nextDep: deps[i] || '',
+        nextDepDate: depDates[i] || '',
       };
     });
   }
@@ -1370,7 +1388,7 @@ function loadHomeTrips() {
         <div style="display:flex;align-items:center;min-width:0">
           <span class="ht-num">#${t.number || '?'}</span>
           <div style="min-width:0">
-            <div class="ht-name">${esc(t.name)}</div>
+            <div class="ht-name">${fmtTripDate(t.date) ? `<span style="color:#64748b;margin-right:0.4rem">${fmtTripDate(t.date)}</span>` : ''}${esc(t.name)}</div>
             <div class="ht-route">${esc(t.route)}</div>
           </div>
         </div>

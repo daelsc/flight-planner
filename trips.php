@@ -23,16 +23,27 @@ if ($method === 'GET' && !isset($_GET['id'])) {
     foreach (glob("$dataDir/*.json") as $f) {
         $data = json_decode(file_get_contents($f), true);
         if ($data) {
+            $tripDate = '';
+            if (isset($data['state']['t'])) {
+                $tripDate = substr($data['state']['t'], 0, 10); // YYYY-MM-DD
+            }
             $trips[] = [
                 'id' => basename($f, '.json'),
                 'number' => $data['number'] ?? null,
                 'name' => $data['name'] ?? 'Untitled',
                 'route' => $data['route'] ?? '',
+                'date' => $tripDate,
                 'saved' => $data['saved'] ?? '',
             ];
         }
     }
-    usort($trips, fn($a, $b) => ($b['number'] ?? 0) - ($a['number'] ?? 0));
+    // Sort chronologically by trip date (earliest first), then by number
+    usort($trips, function($a, $b) {
+        $da = $a['date'] ?: '9999';
+        $db = $b['date'] ?: '9999';
+        $cmp = strcmp($da, $db);
+        return $cmp !== 0 ? $cmp : (($a['number'] ?? 0) - ($b['number'] ?? 0));
+    });
     echo json_encode($trips);
     exit;
 }
