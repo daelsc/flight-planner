@@ -352,7 +352,7 @@ function fmtTimeCell(date, primaryTz) {
   }
   // Zulu + date
   const z = fmtInTz(date, 'UTC');
-  const dateStr = date.toLocaleString('en-US', { timeZone: primaryTz, month:'short', day:'numeric' });
+  const dateStr = date.toLocaleString('en-US', { timeZone: 'UTC', month:'short', day:'numeric' });
   lines.push(`<span class="dim">${z.time}Z</span> <span class="date-lbl">${dateStr}</span>`);
   return lines.join('<br>');
 }
