@@ -56,6 +56,9 @@ button:hover { background: #2563eb; }
 .leg-row.invalid td { background: rgba(239,68,68,0.08); }
 .ground-row.invalid td { background: rgba(239,68,68,0.08); }
 .validation-warn { color: #ef4444; font-size: 0.75rem; margin-left: 0.4rem; }
+.rwy-warn { font-size: 0.68rem; margin-top: 1px; }
+.rwy-red { color: #ef4444; }
+.rwy-yellow { color: #eab308; }
 .ac-list { position: absolute; top: 100%; left: 0; background: #1e293b; border: 1px solid #334155; border-radius: 4px; max-height: 200px; overflow-y: auto; z-index: 100; min-width: 280px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
 .ac-list.open { display: block; }
 .ac-item { padding: 0.3rem 0.5rem; cursor: pointer; font-size: 0.78rem; display: flex; gap: 0.5rem; }
@@ -312,9 +315,9 @@ button:hover { background: #2563eb; }
 <script>
 // ── Profiles ──
 const PROFILES = {
-  G550:   { speed: 488, startup: 25, shutdown: 15, alt: 450, show: 120 },
-  PC12:   { speed: 270, startup: 10, shutdown: 5,  alt: 280, show: 45 },
-  custom: { speed: 250, startup: 10, shutdown: 5,  alt: 350, show: 60 },
+  G550:   { speed: 488, startup: 25, shutdown: 15, alt: 450, show: 120, rwyRed: 5500, rwyYellow: 7000 },
+  PC12:   { speed: 270, startup: 10, shutdown: 5,  alt: 280, show: 45,  rwyRed: 2500, rwyYellow: 3500 },
+  custom: { speed: 250, startup: 10, shutdown: 5,  alt: 350, show: 60,  rwyRed: 3000, rwyYellow: 5000 },
 };
 
 
@@ -808,6 +811,18 @@ function recalc() {
     const sameApt = leg.dep && leg.arr && leg.dep === leg.arr;
     const legInvalid = depInvalid || arrInvalid || sameApt;
 
+    // Runway advisory
+    const b = PROFILES[$('aircraft').value] || PROFILES.custom;
+    function rwyWarn(apt) {
+      if (!apt || !apt.rwy) return '';
+      const len = apt.rwy;
+      if (len < b.rwyRed) return `<div class="rwy-warn rwy-red">⚠ ${len.toLocaleString()}ft runway</div>`;
+      if (len < b.rwyYellow) return `<div class="rwy-warn rwy-yellow">⚠ ${len.toLocaleString()}ft runway</div>`;
+      return '';
+    }
+    const depRwy = rwyWarn(depApt);
+    const arrRwy = rwyWarn(arrApt);
+
     // Build leg row
     const tr = document.createElement('tr');
     tr.className = 'leg-row' + (legInvalid ? ' invalid' : '');
@@ -816,9 +831,9 @@ function recalc() {
       <td>${i === 0
         ? `<div class="icao-wrapper"><input class="icao-input${depInvalid ? ' invalid' : ''}" value="${esc(leg.dep)}" data-l="${i}" data-f="dep" placeholder="ICAO" spellcheck="false"></div>`
         : `<span class="mono" style="font-weight:600">${esc(leg.dep)}</span>`
-      }${depCity ? `<div class="icao-city">${esc(depCity)}</div>` : ''}${depTzLabel ? `<div class="icao-tz">${depTzLabel}</div>` : ''}${depInvalid ? '<div class="validation-warn">Unknown</div>' : ''}</td>
+      }${depCity ? `<div class="icao-city">${esc(depCity)}</div>` : ''}${depRwy}${depTzLabel ? `<div class="icao-tz">${depTzLabel}</div>` : ''}${depInvalid ? '<div class="validation-warn">Unknown</div>' : ''}</td>
       <td class="arrow">→</td>
-      <td><div class="icao-wrapper"><input class="icao-input${arrInvalid ? ' invalid' : ''}" value="${esc(leg.arr)}" data-l="${i}" data-f="arr" placeholder="ICAO" spellcheck="false"></div>${arrCity ? `<div class="icao-city">${esc(arrCity)}</div>` : ''}${arrTzLabel ? `<div class="icao-tz">${arrTzLabel}</div>` : ''}${arrInvalid ? '<div class="validation-warn">Unknown</div>' : ''}${sameApt ? '<div class="validation-warn">Same as departure</div>' : ''}</td>
+      <td><div class="icao-wrapper"><input class="icao-input${arrInvalid ? ' invalid' : ''}" value="${esc(leg.arr)}" data-l="${i}" data-f="arr" placeholder="ICAO" spellcheck="false"></div>${arrCity ? `<div class="icao-city">${esc(arrCity)}</div>` : ''}${arrRwy}${arrTzLabel ? `<div class="icao-tz">${arrTzLabel}</div>` : ''}${arrInvalid ? '<div class="validation-warn">Unknown</div>' : ''}${sameApt ? '<div class="validation-warn">Same as departure</div>' : ''}</td>
       <td class="mono">${distNm!=null ? Math.round(distNm).toLocaleString() : '—'}</td>
       <td class="mono">${fmtDur(flightMin)}${windHtml}</td>
       <td class="mono">${fmtDur(blockMin)}</td>

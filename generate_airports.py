@@ -37,8 +37,9 @@ def main():
     airports_raw = fetch_csv(AIRPORTS_URL)
     runways_raw = fetch_csv(RUNWAYS_URL)
 
-    # Build set of airport IDs with qualifying paved runways
+    # Build set of airport IDs with qualifying paved runways + longest runway
     qualifying_ids = set()
+    longest_runway = {}  # airport_ident -> max paved runway length in ft
     for rwy in runways_raw:
         surface = (rwy.get("surface") or "").strip().upper()
         length = rwy.get("length_ft") or "0"
@@ -48,7 +49,9 @@ def main():
             continue
         is_paved = any(p in surface for p in PAVED_SURFACES)
         if is_paved and length_ft >= MIN_RUNWAY_FT:
-            qualifying_ids.add(rwy.get("airport_ident", "").strip())
+            ident = rwy.get("airport_ident", "").strip()
+            qualifying_ids.add(ident)
+            longest_runway[ident] = max(longest_runway.get(ident, 0), length_ft)
 
     print(f"Found {len(qualifying_ids)} airports with paved runways >= {MIN_RUNWAY_FT} ft")
 
@@ -92,6 +95,7 @@ def main():
             "lat": round(lat_f, 6),
             "lon": round(lon_f, 6),
             "tz": tz,
+            "rwy": longest_runway.get(icao, 0),
         })
 
     results.sort(key=lambda x: x["icao"])
