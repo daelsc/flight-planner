@@ -481,7 +481,7 @@ function fboSelectHtml(icao, legIdx, field, selected) {
   if (!c.fbos.length) return '<div class="fbo-loading dim">No FBOs</div>';
   let html = `<select class="fbo-select" data-l="${legIdx}" data-fbo="${field}"><option value="">FBO...</option>`;
   for (const f of c.fbos) {
-    const label = f.name + (f.fuel ? ` (${f.fuel})` : '');
+    const label = f.name;
     html += `<option value="${esc(f.name)}"${f.name === selected ? ' selected' : ''}>${esc(label)}</option>`;
   }
   html += '</select>';
