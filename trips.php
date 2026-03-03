@@ -87,12 +87,14 @@ if ($method === 'POST') {
         }
         $route = implode(' → ', $airports);
     }
-    // Preserve trip number on update, assign new one for new trips
-    $number = null;
-    $existingFile = "$dataDir/$id.json";
-    if (file_exists($existingFile)) {
-        $existing = json_decode(file_get_contents($existingFile), true);
-        $number = $existing['number'] ?? null;
+    // Use client-provided number, or preserve existing, or auto-assign
+    $number = $input['number'] ?? null;
+    if (!$number) {
+        $existingFile = "$dataDir/$id.json";
+        if (file_exists($existingFile)) {
+            $existing = json_decode(file_get_contents($existingFile), true);
+            $number = $existing['number'] ?? null;
+        }
     }
     if (!$number) $number = nextTripNumber();
 

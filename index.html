@@ -1056,9 +1056,10 @@ function getTripState() {
   return state;
 }
 
-function doSave(name, id) {
+function doSave(name, id, number) {
   const body = { name, state: getTripState() };
   if (id) body.id = id;
+  if (number != null) body.number = number;
   fetch('trips.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then(r => r.json())
     .then(d => {
@@ -1074,28 +1075,34 @@ function saveTrip() {
 
   // Check for existing trips with matching route
   fetch('trips.php').then(r => r.json()).then(trips => {
+    const maxNum = trips.reduce((m, t) => Math.max(m, t.number || 0), 0);
     const match = trips.find(t => t.route === currentRoute && currentRoute);
     if (match) {
       const choice = confirm(`Trip #${match.number || '?'} "${match.name}" has the same route.\n\nOK = Update existing trip\nCancel = Save as new trip`);
       if (choice) {
         const name = prompt('Trip name:', match.name);
         if (!name) return;
-        doSave(name, match.id);
+        doSave(name, match.id, match.number);
       } else {
+        const num = prompt('Trip number:', maxNum + 1);
+        if (!num) return;
         const name = prompt('Trip name:', defaultName);
         if (!name) return;
-        doSave(name, null);
+        doSave(name, null, +num);
       }
     } else {
+      const num = prompt('Trip number:', maxNum + 1);
+      if (!num) return;
       const name = prompt('Trip name:', defaultName);
       if (!name) return;
-      doSave(name, currentTripId);
+      doSave(name, currentTripId, +num);
     }
   }).catch(() => {
-    // Fallback if list fetch fails
+    const num = prompt('Trip number:', '1');
+    if (!num) return;
     const name = prompt('Trip name:', defaultName);
     if (!name) return;
-    doSave(name, currentTripId);
+    doSave(name, currentTripId, +num);
   });
 }
 
