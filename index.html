@@ -281,6 +281,7 @@ button:hover { background: #2563eb; }
     </table>
     <div id="crewAlerts"></div>
   </div>
+  <div id="paxCrewSummary" style="display:none;margin-top:1rem"></div>
 </div>
 </div><!-- /plannerView -->
 
@@ -684,6 +685,7 @@ function recalc() {
 
   $('emptyState').style.display = legs.length ? 'none' : '';
   $('crewSection').style.display = (legs.length && isCrew) ? '' : 'none';
+  $('paxCrewSummary').style.display = (legs.length && !isCrew) ? '' : 'none';
 
   // Show/hide crew-only settings
   document.querySelectorAll('.crew-only').forEach(el => el.style.display = isCrew ? '' : 'none');
@@ -991,6 +993,8 @@ function recalc() {
 function updateCrew(legCalc, crewCount, showMin) {
   const tbody = $('crewBody'), alerts = $('crewAlerts');
   tbody.innerHTML = ''; alerts.innerHTML = '';
+  const paxDiv = $('paxCrewSummary');
+  paxDiv.innerHTML = '';
   if (!legCalc.length) return;
 
   const maxFlight = (crewCount >= 2 ? 10 : 8) * 60;
@@ -1002,10 +1006,10 @@ function updateCrew(legCalc, crewCount, showMin) {
 
   let dutyStart = new Date(firstDepart.getTime() - showMin * 60000);
   let dutyDay = 1;
-  let dutyFlightMin = 0; // flight time in current duty period
+  let dutyFlightMin = 0;
   const alertList = [];
+  const daySummaries = []; // for passenger view
 
-  // Duty day header
   function addDutyHeader() {
     const htr = document.createElement('tr');
     htr.innerHTML = `<td colspan="4" style="color:#818cf8;font-weight:600;padding:0.5rem;border-bottom:1px solid #334155">
@@ -1014,13 +1018,14 @@ function updateCrew(legCalc, crewCount, showMin) {
   }
   addDutyHeader();
 
+  let lastDutyMin = 0, lastFlightMin = 0;
+
   for (let i = 0; i < legCalc.length; i++) {
     const lc = legCalc[i];
     if (!lc.arriveTime || lc.flightMin == null) continue;
 
     dutyFlightMin += lc.flightMin;
 
-    // Cumulative flight in trailing 24h (for regulatory limit)
     let flight24 = 0;
     for (let j = 0; j <= i; j++) {
       if (!legCalc[j].departTime || legCalc[j].flightMin == null) continue;
@@ -1028,10 +1033,13 @@ function updateCrew(legCalc, crewCount, showMin) {
         flight24 += legCalc[j].flightMin;
     }
 
-    const dutyMin = (lc.arriveTime - dutyStart) / 60000 + 30; // 30 min post-landing duty
+    const dutyMin = (lc.arriveTime - dutyStart) / 60000 + 30;
     const flightRem = maxFlight - dutyFlightMin;
     const dutyRem = maxDuty - dutyMin;
     const worst = Math.min(flightRem, dutyRem);
+
+    lastDutyMin = dutyMin;
+    lastFlightMin = dutyFlightMin;
 
     let cls, txt;
     if (worst <= 0) { cls = 'status-bad'; txt = 'EXCEEDED'; }
@@ -1060,6 +1068,8 @@ function updateCrew(legCalc, crewCount, showMin) {
       ? (legCalc[i+1].departTime - lc.arriveTime) / 60000 : 0;
     const legIsRest = legs[i].rest || legGroundMin >= 600;
     if (i < legs.length - 1 && legIsRest && legCalc[i+1]?.departTime) {
+      // Save this duty day summary
+      daySummaries.push({ day: dutyDay, flightMin: dutyFlightMin, dutyMin, maxFlight, maxDuty, exceeded: worst <= 0 });
       dutyDay++;
       dutyStart = new Date(legCalc[i+1].departTime.getTime() - showMin * 60000);
       dutyFlightMin = 0;
@@ -1067,11 +1077,23 @@ function updateCrew(legCalc, crewCount, showMin) {
     }
   }
 
+  // Final duty day summary
+  daySummaries.push({ day: dutyDay, flightMin: lastFlightMin, dutyMin: lastDutyMin, maxFlight, maxDuty, exceeded: lastFlightMin > maxFlight || lastDutyMin > maxDuty });
+
   for (const a of alertList) {
     const div = document.createElement('div');
     div.className = 'alert-box' + (a.crit ? ' critical' : '');
     div.textContent = a.msg;
     alerts.appendChild(div);
+  }
+
+  // Passenger view: one line per duty day
+  for (const ds of daySummaries) {
+    const bad = ds.flightMin > ds.maxFlight || ds.dutyMin > ds.maxDuty;
+    const div = document.createElement('div');
+    div.style.cssText = `font-size:0.82rem;padding:0.35rem 0;color:${bad ? '#ef4444' : '#94a3b8'}`;
+    div.textContent = `Day ${ds.day}: ${fmtDur(ds.flightMin)} flight / ${fmtDur(ds.dutyMin)} duty${bad ? ' — EXCEEDS LIMITS' : ''}`;
+    paxDiv.appendChild(div);
   }
 }
 
