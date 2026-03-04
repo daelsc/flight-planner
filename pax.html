@@ -11,9 +11,13 @@ h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.25rem; }
 .trip-meta { color: #666; font-size: 0.85rem; margin-bottom: 1.5rem; }
 .updated { color: #999; font-size: 0.75rem; margin-bottom: 1.5rem; }
 .leg { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
-.leg-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.leg-header { background: #f8f8f8; padding: 0.4rem 1rem; font-size: 0.78rem; font-weight: 600; color: #666; border-bottom: 1px solid #e0e0e0; }
+.leg-body { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; }
 .leg-col { padding: 0.75rem 1rem; }
-.leg-col + .leg-col { border-left: 1px solid #e0e0e0; }
+.leg-mid { padding: 0.75rem 0.5rem; display: flex; align-items: center; justify-content: center; border-left: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; }
+.leg-mid .block-time { font-family: 'SF Mono', 'Menlo', monospace; font-size: 0.85rem; font-weight: 600; color: #666; }
+.leg-col + .leg-mid { }
+.leg-col:last-child { }
 .leg-col h3 { font-size: 0.7rem; text-transform: uppercase; color: #999; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
 .airport-code { font-size: 1.3rem; font-weight: 700; font-family: 'SF Mono', 'Menlo', monospace; }
 .airport-name { font-size: 0.8rem; color: #666; }
@@ -34,7 +38,7 @@ h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.25rem; }
 @media (max-width: 500px) {
   body { padding: 1rem; }
   .leg-body { grid-template-columns: 1fr; }
-  .leg-col + .leg-col { border-left: none; border-top: 1px solid #e0e0e0; }
+  .leg-mid { border-left: none; border-right: none; border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; }
 }
 </style>
 </head>
@@ -301,6 +305,7 @@ async function loadAndRender() {
     const { leg, depApt, arrApt, depTz, arrTz, blockMin, departTime, arriveTime, depFboInfo, arrFboInfo } = c;
 
     html += `<div class="leg">`;
+    html += `<div class="leg-header">Leg ${i + 1}</div>`;
 
     html += `<div class="leg-body">`;
 
@@ -324,6 +329,9 @@ async function loadAndRender() {
       html += `</div>`;
     }
     html += `</div>`;
+
+    // Block time column
+    html += `<div class="leg-mid"><span class="block-time">${blockMin != null ? fmtDur(blockMin) : '—'}</span></div>`;
 
     // Arrival column
     html += `<div class="leg-col">`;
