@@ -166,6 +166,7 @@ async function loadAndRender() {
   const depDates = p.dd ? p.dd.split(',') : [];
   const dfbos = p.df ? p.df.split('|') : [];
   const afbos = p.af ? p.af.split('|') : [];
+  const pxCounts = p.px ? p.px.split(',') : [];
 
   const legs = pairs.map((pair, i) => {
     const [dep, arr] = pair.split('-');
@@ -175,6 +176,7 @@ async function loadAndRender() {
       nextDep: deps[i] || '',
       nextDepDate: depDates[i] || '',
       depFbo: dfbos[i] || '',
+      pax: pxCounts[i] ? +pxCounts[i] : 0,
       arrFbo: afbos[i] || '',
     };
   });
@@ -305,7 +307,7 @@ async function loadAndRender() {
     const { leg, depApt, arrApt, depTz, arrTz, blockMin, departTime, arriveTime, depFboInfo, arrFboInfo } = c;
 
     html += `<div class="leg">`;
-    html += `<div class="leg-header">Leg ${i + 1}</div>`;
+    html += `<div class="leg-header">Leg ${i + 1}${leg.pax ? ` — ${leg.pax} passenger${leg.pax > 1 ? 's' : ''}` : ''}</div>`;
 
     html += `<div class="leg-body">`;
 

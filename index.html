@@ -192,6 +192,14 @@ button:hover { background: #2563eb; }
 <!-- Home screen -->
 <div id="homeScreen" class="home-screen" style="display:none">
   <h1>Trip Planner</h1>
+  <div style="margin-bottom:1rem">
+    <label style="font-size:0.8rem;color:#94a3b8;margin-right:0.4rem">Aircraft</label>
+    <select id="homeAircraft" style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:0.3rem 0.45rem;border-radius:4px;font-size:0.85rem">
+      <option value="G550" selected>Gulfstream G550</option>
+      <option value="PC12">Pilatus PC-12</option>
+      <option value="custom">Custom</option>
+    </select>
+  </div>
   <div id="homeTrips" class="home-trips"></div>
   <button class="home-new" onclick="startNewTrip()">+ New Trip</button>
 </div>
@@ -266,6 +274,7 @@ button:hover { background: #2563eb; }
           <th>Dist</th>
           <th>Flight</th>
           <th>Block</th>
+          <th>Pax</th>
           <th>Depart</th>
           <th>Arrive</th>
           <th></th>
@@ -583,7 +592,7 @@ function autoPopulateTZ() {
 // ── Leg management ──
 function addLeg(dep, arr, ground, rest, nextDep) {
   const lastArr = legs.length > 0 ? legs[legs.length-1].arr : '';
-  legs.push({ dep: dep||lastArr, arr: arr||'', groundMin: ground ?? null, rest: rest||false, wind: null, nextDep: nextDep||'', depFbo: '', arrFbo: '' });
+  legs.push({ dep: dep||lastArr, arr: arr||'', groundMin: ground ?? null, rest: rest||false, wind: null, nextDep: nextDep||'', depFbo: '', arrFbo: '', pax: 0 });
   recalc();
 }
 function removeLeg(i) { legs.splice(i, 1); recalc(); }
@@ -599,7 +608,7 @@ function loadRoute() {
   if (codes.length < 2) return;
   legs = [];
   for (let i = 0; i < codes.length - 1; i++) {
-    legs.push({ dep: codes[i], arr: codes[i+1], groundMin: null, rest: false, wind: null, nextDep: '', depFbo: '', arrFbo: '' });
+    legs.push({ dep: codes[i], arr: codes[i+1], groundMin: null, rest: false, wind: null, nextDep: '', depFbo: '', arrFbo: '', pax: 0 });
   }
   input.value = '';
   recalc();
@@ -875,6 +884,7 @@ function recalc() {
       <td class="mono">${distNm!=null ? Math.round(distNm).toLocaleString() + ' nm' : '—'}</td>
       <td class="mono">${fmtDur(flightMin)}${windHtml}</td>
       <td class="mono">${fmtDur(blockMin)}</td>
+      <td><select class="pax-select" data-l="${i}" style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:0.2rem;border-radius:3px;font-size:0.8rem">${Array.from({length:20},(_,n)=>`<option value="${n}"${n===leg.pax?' selected':''}>${n}</option>`).join('')}</select></td>
       <td>${fmtTimeCell(departTime, depTz)}</td>
       <td>${fmtTimeCell(arriveTime, arrTz)}</td>
       <td>
@@ -899,6 +909,11 @@ function recalc() {
         const li = +sel.dataset.l, fld = sel.dataset.fbo;
         legs[li][fld] = sel.value;
       });
+    });
+
+    // Setup pax select handler
+    tr.querySelector('.pax-select')?.addEventListener('change', function() {
+      legs[+this.dataset.l].pax = +this.value;
     });
 
     // Setup date/time handlers in dep cell
@@ -1220,6 +1235,8 @@ function buildURL() {
     const afbos = legs.map(l => l.arrFbo || '');
     if (dfbos.some(f => f)) p.set('df', dfbos.join('|'));
     if (afbos.some(f => f)) p.set('af', afbos.join('|'));
+    const paxCounts = legs.map(l => l.pax || 0);
+    if (paxCounts.some(n => n > 0)) p.set('px', paxCounts.join(','));
   }
   return location.origin + location.pathname + '?' + p.toString();
 }
@@ -1393,6 +1410,7 @@ function pushToForeFlight() {
         arrivalTime: lc.arriveTime ? lc.arriveTime.toISOString() : undefined,
         externalId: (currentTripId || 'trip') + '-' + leg.dep + '-' + leg.arr,
         tripId: currentTripId || undefined,
+        numberOfPassengers: leg.pax || 0,
       });
     });
     overlay.remove();
@@ -1443,6 +1461,7 @@ function parseURL() {
     const depDates = p.has('dd') ? p.get('dd').split(',') : [];
     const dfbos = p.has('df') ? p.get('df').split('|') : [];
     const afbos = p.has('af') ? p.get('af').split('|') : [];
+    const pxCounts = p.has('px') ? p.get('px').split(',') : [];
     legs = pairs.map((pair, i) => {
       const [dep, arr] = pair.split('-');
       return {
@@ -1454,6 +1473,7 @@ function parseURL() {
         nextDepDate: depDates[i] || '',
         depFbo: dfbos[i] || '',
         arrFbo: afbos[i] || '',
+        pax: pxCounts[i] ? +pxCounts[i] : 0,
       };
     });
   }
@@ -1490,7 +1510,7 @@ function startNewTrip() {
   legs = [];
   currentTripId = null;
   extraTZ = [];
-  $('aircraft').value = 'G550';
+  $('aircraft').value = $('homeAircraft').value || 'G550';
   $('pClimb').value = ''; $('pSpeed').value = ''; $('pDescent').value = ''; $('pStartup').value = ''; $('pShutdown').value = ''; $('pAlt').value = ''; $('showTime').value = '';
   $('startTime').value = ''; $('startDateStore').value = ''; $('startTimeStore').value = '';
   $('crew').value = '2';
