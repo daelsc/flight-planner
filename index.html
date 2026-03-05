@@ -343,6 +343,9 @@ const ALT_PRESSURE = [
   [24000,400],[18000,500],[14000,600],[10000,700],[5000,850],[3000,900],
 ];
 
+// ── CAA Preferred FBOs (from caa.org) ──
+const CAA_FBOS = {"KPQL":"Southern Sky Aviation","KLUK":"Waypoint Aviation","KCYS":"Legend AeroServe","KCWI":"Clinton Municipal Airport","CZBB":"Boundary Bay Air Services","KGKY":"Arlington Air Center","KDVT":"Cutter Aviation","KSPF":"Eagle Aviation, LLC.","KLMT":"RMC Aviation","KSBY":"Azure Flight Support","KATW":"Appleton Flight Center","KMHR":"Mather Jet Center","KBPI":"Joint Big Piney","KPVW":"Tradewind FBO","KHOU":"Wilson Air Center","F82":"ClearTech Aviation","KBUR":"Hollywood Burbank Jet Center","KCAE":"Columbia Aviation","KABQ":"Cutter Aviation","KPIE":"Sheltair","KMLB":"Sheltair","KLOZ":"London-Corbin Airport","KVPC":"Phoenix Air","KRNO":"Stellar Aviation","KCSV":"Azure Flight Support","KMQY":"Azure Flight Support","KSJT":"San Angelo Jet Center","KAXH":"Houston Southwest Airport","KABR":"Hangar 9","KEVW":"Evanston Aviation","CYYC":"Signature Aviation","LSZH":"Jet Aviation","KCHA":"Wilson Air Center","KADS":"Million Air","KJNX":"Johnston Regional Airport","KPUB":"Freeman Jet Center","KGEG":"Aero Center","LSGG":"Jet Aviation","KRVS":"Christiansen Jet Center","KTUL":"United States Aviation","TISX":"Bohlke International Aviation","KDAY":"PremierFBO","KVRB":"Sun Aviation, Inc.","KLCI":"Emerson Aviation","KHDC":"Top Gun Hammond","KSRB":"Upper Cumberland Regional Jet Center","KGPT":"Million Air","KGCM":"Claremore Regional Airport","KBDR":"Three Wing Aviation Group, LLC","KAUS":"Million Air","KSPK":"Utah Aviation","KTDW":"Tradewind FBO","KTMB":"Reliance Aviation","KUVA":"Uvalde Flight Center","EGSS":"Inflite the Jet Centre","KAFO":"Eagle Jet Center","I68":"WCA Jet Center","KCRQ":"Carlsbad Jet Center","KVDF":"Skyport Aviation","KHZY":"Northeast Ohio Regional","X60":"City of Williston","KOAK":"KaiserAir Oakland Jet Center","MYNN":"Jet Nassau","KGSP":"Cerulean Aviation","KPDK":"Aero Center","M40":"Monroe County Airport","KCGI":"Cape Aviation","KSUS":"Million Air","KYIP":"Avflight","KGPH":"APEX Aero Center","KFYV":"Fayetteville Aviation Services","EGGW":"Signature Aviation","KFSD":"Maverick Air Center","KOKV":"Winchester Aviation","KORL":"Sheltair","KSUA":"APP Jet Center","KMEM":"Wilson Air Center","KFCM":"Thunderbird Aviation","KBOI":"Jackson Jet Center","KBIS":"Executive Air Taxi Corporation","KRBD":"Ambassador Jet Center","KRUE":"Russellville Regional Airport","KBTR":"Velocity BTR Jet Center","KHRL":"Sun Valley Aviation","KOJC":"Executive Aircraft Service","KSFB":"Million Air","KHFY":"Indy South Greenwood Airport","KSFF":"Aero Center","KTTN":"FlightServ","KBMG":"Cook Aviation","KGTU":"Cutter Aviation","KHKS":"Skyport Aviation","KISM":"Velocity FBO Network","KHEF":"APP Jet Center","KTEB":"Signature Aviation West","KWRL":"Hellyer Aviation","KCCO":"CCO Airport Services","KRWI":"Rocky Mount Wilson Regional Airport","KHSI":"Hastings Air","KGRR":"Avflight","KCXY":"Skyport Aviation","KCPS":"Jet Aviation","KCMH":"Signature Aviation","CYVR":"Million Air","M22":"Explore Aviation","KBZN":"Jet Aviation","KRQO":"El Reno Flight Center","KCXO":"General Aviation Services","KILM":"Aero Center","CYQX":"Woodward Aviation","KHIO":"Global Aviation Inc.","KCRP":"Sterling Air Service","KVNC":"Skyport Aviation","EHAM":"Jet Aviation","KCPR":"Aero Center","KMKE":"Avflight","KDVO":"Skyshare","KGYY":"B. Coleman Aviation","KJAX":"Sheltair","KLZU":"Aircraft Specialists Jet Center","KAFJ":"Skyward Aviation","KBHM":"Million Air","KDCU":"Pryor Flight Center","KTPA":"Sheltair","KROG":"Beaver Lake Aviation","KSLN":"Avflight","KPNS":"Pensacola Aviation Center, LLC","KHUT":"Wells Aircraft","CYXX":"Fast Air Jet Centre","KBIL":"Edwards Jet Center","KJVL":"Revv Aviation","KMOD":"Modesto Jet Center","KSAT":"Million Air","KCFO":"Colorado Air and Space Port","KPTK":"Pentastar Aviation","KLNK":"Duncan Aviation","KIND":"Million Air","KDSM":"Modern Aviation","KAVK":"Alva Regional Airport","KPVG":"Hampton Roads Executive Airport","KGRB":"Jet Air Group","KCLE":"Jets FBO Network","KPNA":"Top Flight","KLXT":"City of Lee's Summit","KLWM":"Falcon Air","KLBE":"Laurel Highlands Jet Center","KBFI":"Skyservice","KFFM":"Sky Crew Services","KPWM":"Northeast Air","KRNH":"East Metro Jet Center","KCMA":"Air 7","KCNO":"Flying Tigers Aviation","KRZR":"Cleveland Regional Jetport","KSTS":"KaiserAir Santa Rosa Jet Center","KVNY":"Castle & Cooke Aviation","KATY":"ATY Aviation, Inc.","KGSO":"Koury Aviation","KUDD":"Dunes Air","KPEQ":"Crosby Flying Services, LLC","KMVN":"SRT Flightline","KMSO":"Northstar Jet","KOLV":"Memphis Executive Jet Center, LLC","KAFK":"Blue Line Aviation","KPHX":"Cutter Aviation","KJVY":"Honaker Aviation","KSNS":"gateOne","KSUW":"Superior Flying Services, LLC","KDXR":"Reliant Air","KFTW":"Texas Jet","CYWG":"Fast Air Jet Centre","KGTF":"Great Falls Jet Center","KTLH":"Million Air","KFTY":"Hill Aircraft","KMLU":"Avflight","KSTP":"St. Paul Flight Center","KDTN":"Tubreaux Aviation","KAMA":"Haven FBO","KHUM":"Simon Aviation Services","KOQU":"FlightLevel Rhode Island","KBED":"Jet Aviation","KARR":"J.A. Air Center","KAZO":"Duncan Aviation","KBVU":"Boulder City Aviation Services","KCMD":"Cullman Regional Airport","KCBF":"Apex Aero Center","KENW":"Stein's Aircraft Services","KFOE":"Million Air","KEXX":"Fly High Lexington","KSAV":"Sheltair","CYQB":"Lux FBO","H81":"Redline Aviation","KSDL":"Jet Aviation","KAAO":"Clemens Aviation","KODO":"Ector County Odessa Schlemeyer Field","KECP":"Sheltair","KCDS":"Boedeker Flying Service","KCXP":"Stellar Aviation","KACT":"Freeman Jet Center Waco","KBFF":"Classic Aircraft Service","KOWD":"Boston Executive","KBTF":"Skypark Airport","TIST":"Standard Aviation LLC","KOPF":"Fontainebleau Aviation","KDHT":"Starlink Aviation","KMLS":"Miles City Airport","0A9":"Elizabethton Municipal Airport","EINN":"Signature Aviation","KPWK":"Atlantic Aviation","KABI":"Freeman Jet Center Abilene","KDKB":"City of DeKalb","KPWA":"Jetset FBO","M54":"Direct Flight Solutions","KPGA":"American Aviation, Inc.","KNEW":"Flightline First","KEVV":"United Companies Air Center","KCCR":"Concord Jet Center","KFOK":"Signature Aviation","KMAE":"Madera Jet Center","KTRL":"Apex Aero Center","KFFZ":"Cunningham Aviation","KILG":"flyAdvanced","EGGD":"Centreline","KSEE":"Circle Air Group","KHYS":"Hays Aircraft LLC","KCOD":"Beacon Air Group","KLWS":"Hillcrest Aircraft Company","KARG":"Walnut Ridge Regional Airport","CYYZ":"Execaire Aviation","KDAB":"Yelvington Jet Aviation","KFPR":"APP Jet Center","KVQQ":"Million Air","KMGR":"Eagles of America Inc.","KMYF":"Crownair Aviation","KFNL":"jetCenters of Colorado","PHNL":"Castle & Cooke Aviation","KENV":"Wendover Airport","KSRQ":"Ascension FBO Network","KSNA":"Clay Lacy","KRBW":"Lowcountry Regional Airport","KJWN":"Contour Flight Support","KHWD":"APP Jet Center","KSAF":"Atlantic Aviation","KCRG":"Sky Harbor Aviation","KMRB":"MRB Aviation","KECG":"Elizabeth City Regional Airport","KSGU":"Sandstone Aviation","KTUS":"Tucson Jet Center","CYHU":"Lux FBO","KSAD":"Spalsbury Aviation","KELN":"Mt. Stuart Aviation","KSDY":"Richland Aviation","KLAL":"Aero Center","KESN":"Trident Aircraft","KAPA":"jetCenters of Colorado","KFLL":"Sheltair","KROC":"Avflight","KOXR":"Axis Air","KPRC":"Cutter Aviation","KJKA":"Gulf Air Center","KXNX":"Jet Access","KLBF":"Trego-Dugan Aviation","KHOB":"Christian Aero","KCXW":"Conway Regional Airport","KJLN":"Mizzou Aviation","KTHA":"Tullahoma Municipal Airport","MBPV":"Business Aviation Ltd","KIXD":"Advanced Aviation Jet Center","KAPS":"Port of South Louisiana","KLRU":"Francis Aviation LLC","KCNI":"S & S Aviation","KHPN":"Million Air","KTYR":"Johnson Aviation","KELP":"Million Air","KEWB":"NorEast Aviation Services Inc","KJST":"Nulton Aviation Services, Inc.","KLNA":"Stellar Aviation","KTVC":"Avflight","KWDG":"Enid Woodring Regional Airport","KAKO":"Hayes Aviation","KHHR":"Jet Center","KUKF":"Wilkes County Airport","KGYI":"Rise Aviation","KTRM":"Desert Jet Center","KTTA":"Raleigh Executive Jetport","KDDC":"Crotts Aircraft Service","EDDL":"Jet Aviation","KOAJ":"Skyport Aviation","KBFL":"Bakersfield Jet Center","KICT":"Yingling Aviation","KPBI":"Jet Aviation","KUES":"Stein's Aircraft Services, LLC","KFXE":"Banyan Air Service","KCLW":"FlyUSA","KPVU":"Duncan Aviation","KCAK":"Avflight","KAXS":"Altus-Quartz Mt. Regional Airport","KCKB":"V1 Aviation","KTIW":"Narrows Aviation","KLBB":"Million Air Lubbock","KDAL":"Business Jet","KXNA":"Regional Jet Center","KCOS":"Cutter Aviation","KISP":"New York Jet","KMKG":"Executive Air Transport","KTOL":"Grand Aire, Inc.","F05":"Wilbarger County Airport","KJYO":"Kuhn Jet Center","KALO":"Livingston Aviation","KIAD":"Atlantic Aviation","KBIV":"Avflight","KBJC":"Sheltair","KPXE":"Perry Houston County Airport Authority"};
+
 // ── State ──
 let airports = [], aptIdx = {};
 let legs = [];           // {dep, arr, groundMin:null, rest:false, wind:null}
@@ -500,9 +503,18 @@ function fboSelectHtml(icao, legIdx, field, selected) {
     return c?.loading ? '<div class="fbo-loading">Loading FBOs...</div>' : '';
   }
   if (!c.fbos.length) return '<div class="fbo-loading dim">No FBOs</div>';
+  // Auto-default FBO for specific airports
+  const FBO_DEFAULTS = { KSJC: 'Signature' };
+  const defaultPat = FBO_DEFAULTS[icao];
+  if (!selected && defaultPat) {
+    const match = c.fbos.find(f => f.name.includes(defaultPat));
+    if (match) { selected = match.name; if (legIdx >= 0) legs[legIdx][field] = match.name; }
+  }
+  const caaFbo = CAA_FBOS[icao];
   let html = `<select class="fbo-select" data-l="${legIdx}" data-fbo="${field}"><option value="">FBO...</option>`;
   for (const f of c.fbos) {
-    const label = f.name;
+    const isCaa = caaFbo && f.name.includes(caaFbo);
+    const label = isCaa ? `★ ${f.name} (CAA)` : f.name;
     html += `<option value="${esc(f.name)}"${f.name === selected ? ' selected' : ''}>${esc(label)}</option>`;
   }
   html += '</select>';
@@ -1524,12 +1536,14 @@ function loadHomeTrips() {
   const container = $('homeTrips');
   container.innerHTML = '<div class="home-empty">Loading...</div>';
   fetch('trips.php').then(r => r.json()).then(trips => {
-    if (!trips.length) {
-      container.innerHTML = '<div class="home-empty">No saved trips yet.</div>';
+    const ac = $('homeAircraft').value;
+    const filtered = trips.filter(t => !t.aircraft || t.aircraft === ac);
+    if (!filtered.length) {
+      container.innerHTML = '<div class="home-empty">No saved trips for this aircraft.</div>';
       return;
     }
     container.innerHTML = '';
-    for (const t of trips) {
+    for (const t of filtered) {
       const div = document.createElement('div');
       div.className = 'home-trip';
       div.innerHTML = `
@@ -1586,6 +1600,7 @@ function doLogin() {
     }).catch(() => { $('loginErr').textContent='Login failed'; $('loginErr').style.display=''; });
 }
 $('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+$('homeAircraft').addEventListener('change', () => loadHomeTrips());
 
 function initApp() {
   const p = new URLSearchParams(location.search);

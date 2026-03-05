@@ -41,6 +41,7 @@ if ($method === 'GET' && !isset($_GET['id'])) {
                 'route' => $data['route'] ?? '',
                 'date' => $tripDate,
                 'saved' => $data['saved'] ?? '',
+                'aircraft' => $data['state']['a'] ?? '',
             ];
         }
     }
