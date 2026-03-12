@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Aviation trip planner web app for planning multi-leg flights. Handles flight time calculations, crew rest/duty time tracking, FBO lookups, timezone conversions, and ForeFlight dispatch integration. Served via Apache on submarine at `public_html/trip-planner/`.
+Aviation trip planner web app for planning multi-leg flights. Handles flight time calculations, crew rest/duty time tracking, FBO lookups, timezone conversions, and ForeFlight dispatch integration.
+
+### Deployment
+- **Production**: https://thesemite.com/trip-planner/ (served via Apache on submarine)
+- **Document root**: `/raid/home/des/public_html/trip-planner/` (this is the live deployment)
+- **Dev clone**: `/raid/home/des/git/trip-planner/`
+- **GitHub**: https://github.com/daelsc/flight-planner.git
 
 ## Architecture
 
